@@ -661,7 +661,7 @@ export default function SortifiLandingPage() {
             </div>
             <div className="pw-sb-section">
               <div className="pw-sb-label">Shared</div>
-              <div className="pw-sb-item"><span className="pw-sb-item-icon">👥</span><span className="pw-sb-item-text">Team Folder</span></div>
+              <div className="pw-sb-item"><span className="pw-sb-item-icon">👥</span><span className="pw-sb-item-text">Community Folder</span></div>
               <div className="pw-sb-item"><span className="pw-sb-item-icon">🔗</span><span className="pw-sb-item-text">Shared Links</span></div>
             </div>
           </div>
@@ -794,8 +794,8 @@ export default function SortifiLandingPage() {
             </div>
             <div className="fgm-item">
               <div className="fgm-icon">👥</div>
-              <div className="fgm-title">Team Collaboration</div>
-              <div className="fgm-body">Create teams, shared folders, role-based access. Every member sees only what they should.</div>
+              <div className="fgm-title">Community Collaboration</div>
+              <div className="fgm-body">Create Communities, shared folders, role-based access. Every member sees only what they should.</div>
             </div>
             <div className="fgm-item">
               <div className="fgm-icon">☁️</div>
@@ -1014,8 +1014,8 @@ export default function SortifiLandingPage() {
             </div>
             <div className="feat-card" data-delay="160">
               <div className="feat-card-icon">👥</div>
-              <div className="feat-card-title">Team Collaboration</div>
-              <div className="feat-card-body">Create teams, shared folders, and collaborate with role-based access. Every member sees only what they should.</div>
+              <div className="feat-card-title">Community Collaboration</div>
+              <div className="feat-card-body">Create Communities, shared folders, and collaborate with role-based access. Every member sees only what they should.</div>
             </div>
           </div>
         </div>
@@ -1228,7 +1228,7 @@ export default function SortifiLandingPage() {
                 <li>All 9 search modes</li>
                 <li>Auto-reminders (90/30/7 days)</li>
                 <li>Semantic search (V2.0)</li>
-                <li>Team collaboration</li>
+                <li>Community Collaboration</li>
                 <li>Google Drive import</li>
                 <li>Secure sharing</li>
               </ul>
@@ -1237,12 +1237,12 @@ export default function SortifiLandingPage() {
               <div className="pc-plan">Business</div>
               <div className="pc-price">₹<span>2499</span></div>
               <div className="pc-price-sub">per month · up to 10 users</div>
-              <div className="pc-desc">For small businesses and clinic teams.</div>
+              <div className="pc-desc">For small businesses and clinic Communities.</div>
               <button className="pc-cta pc-cta-outline">Start Business Trial</button>
               <div className="pc-divider"></div>
               <ul className="pc-features">
                 <li>Everything in Pro</li>
-                <li>Up to 10 team members</li>
+                <li>Up to 10 network members</li>
                 <li>Role-based access control</li>
                 <li>PII detection alerts</li>
                 <li>Audit logs & activity feed</li>
@@ -1266,7 +1266,7 @@ export default function SortifiLandingPage() {
               <div className="rm-content">
                 <div className="rm-version">V1.0 — Launch</div>
                 <div className="rm-title">Web App · AI Engine · 9 Search Modes</div>
-                <div className="rm-body">Auto-reminders · Doc chat · Teams · Google Drive · Secure sharing · Smart folders · Full DPDP compliance</div>
+                <div className="rm-body">Auto-reminders · Doc chat · Communities · Google Drive · Secure sharing · Smart folders · Full DPDP compliance</div>
                 <span className="rm-badge rm-badge-live">✓ Now Live</span>
               </div>
             </div>
@@ -1318,7 +1318,7 @@ export default function SortifiLandingPage() {
             <div className="fg-item"><span className="fgi-icon">🔍</span><span className="fgi-text">Search: "health insurance"</span></div>
             <div className="fg-item"><span className="fgi-icon">📝</span><span className="fgi-text">employment_contract.pdf · Legal</span></div>
             <div className="fg-item"><span className="fgi-icon">🔐</span><span className="fgi-text">AES-256 encryption · Active</span></div>
-            <div className="fg-item"><span className="fgi-icon">👥</span><span className="fgi-text">Team folder shared · 3 members</span></div>
+            <div className="fg-item"><span className="fgi-icon">👥</span><span className="fgi-text">Community Folder shared · 3 members</span></div>
             {/*  duplicate  */}
             <div className="fg-item"><span className="fgi-icon">📋</span><span className="fgi-text">insurance_policy.pdf · Categorised</span></div>
             <div className="fg-item"><span className="fgi-icon">📊</span><span className="fgi-text">gst_march_2025.xlsx · Tagged</span></div>
@@ -1326,7 +1326,7 @@ export default function SortifiLandingPage() {
             <div className="fg-item"><span className="fgi-icon">🔍</span><span className="fgi-text">Search: "health insurance"</span></div>
             <div className="fg-item"><span className="fgi-icon">📝</span><span className="fgi-text">employment_contract.pdf · Legal</span></div>
             <div className="fg-item"><span className="fgi-icon">🔐</span><span className="fgi-text">AES-256 encryption · Active</span></div>
-            <div className="fg-item"><span className="fgi-icon">👥</span><span className="fgi-text">Team folder shared · 3 members</span></div>
+            <div className="fg-item"><span className="fgi-icon">👥</span><span className="fgi-text">Community Folder shared · 3 members</span></div>
           </div>
           <div className="fg-row fg-row-2">
             <div className="fg-item"><span className="fgi-icon">🧾</span><span className="fgi-text">invoice_q1.pdf · Finance</span></div>

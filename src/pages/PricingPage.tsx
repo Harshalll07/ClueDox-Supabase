@@ -54,7 +54,7 @@ const plans: Plan[] = [
       { text: "Web app only", included: true },
       { text: "Community forum support", included: true },
       { text: "WhatsApp features", included: false },
-      { text: "Team features", included: false },
+      { text: "Community features", included: false },
       { text: "API access", included: false },
     ],
     cta: "Get Started Free",
@@ -78,7 +78,7 @@ const plans: Plan[] = [
       { text: "API read access (beta)", included: true },
       { text: "Email support (48hr)", included: true },
       { text: "WhatsApp chatbot", included: false },
-      { text: "Team features", included: false },
+      { text: "Community features", included: false },
     ],
     cta: "Start Starter Plan",
   },
@@ -87,7 +87,7 @@ const plans: Plan[] = [
     icon: Crown,
     price: "₹799",
     period: "/month",
-    tagline: "Full WhatsApp chatbot + team collaboration",
+    tagline: "Full WhatsApp chatbot + community collaboration",
     storage: "50 GB (~25,000 documents)",
     popular: true,
     gradient: "from-primary/20 to-primary/5",
@@ -100,7 +100,7 @@ const plans: Plan[] = [
       { text: "Sub-300ms priority search", included: true },
       { text: "Bulk folder upload", included: true },
       { text: "Gmail & Outlook plugin", included: true },
-      { text: "Up to 5 team members", included: true },
+      { text: "Up to 5 network members", included: true },
       { text: "Advanced analytics dashboard", included: true },
       { text: "Custom tags & categories", included: true },
       { text: "Document expiry risk score", included: true },
@@ -115,11 +115,11 @@ const plans: Plan[] = [
     icon: Building2,
     price: "₹2,499",
     period: "/month",
-    tagline: "For teams that need compliance & integrations",
+    tagline: "For communities that need compliance & integrations",
     storage: "1 TB (~500,000 documents)",
     features: [
       { text: "Everything in Pro", included: true },
-      { text: "Unlimited team members", included: true },
+      { text: "Unlimited network members", included: true },
       { text: "WhatsApp Group Archiver", included: true },
       { text: "Admin dashboard + user mgmt", included: true },
       { text: "SSO (Google / Microsoft)", included: true },
@@ -190,7 +190,7 @@ const PricingPage = () => {
             <span className="gradient-text">pricing.</span>
           </h1>
           <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-            AI features included in every plan. Upgrade for more storage, WhatsApp chatbot, and team features.
+            AI features included in every plan. Upgrade for more storage, WhatsApp chatbot, and Community features.
           </p>
         </motion.div>
       </section>

@@ -118,7 +118,7 @@ const DPRPage = () => {
                 { title: "Document AI Chat", desc: "Ask questions about your documents in natural language and get cited answers" },
                 { title: "Expiry Tracking", desc: "Automatic detection of expiry dates with proactive reminders and notifications" },
                 { title: "WhatsApp Access", desc: "Search and retrieve documents via WhatsApp — no app installation required" },
-                { title: "Team Collaboration", desc: "Share documents with teams, manage folders, and control access with role-based permissions" },
+                { title: "Community Collaboration", desc: "Share documents with Communities, manage folders, and control access with role-based permissions" },
               ].map((item, i) => (
                 <div key={i} className="p-4 rounded-lg bg-muted/50 space-y-1">
                   <h4 className="font-semibold text-sm">{item.title}</h4>
@@ -240,12 +240,12 @@ const DPRPage = () => {
                 ]
               },
               {
-                icon: Users, title: "Teams & Collaboration",
+                icon: Users, title: "Communities & Collaboration",
                 features: [
-                  "Create and manage teams with invite system",
+                  "Create and manage Communities with invite system",
                   "Role-based access control (Owner, Admin, Member)",
-                  "Team folders for shared document access",
-                  "Add files to team folders for collaborative work",
+                  "Community folders for shared document access",
+                  "Add files to Community folders for collaborative work",
                 ]
               },
               {
@@ -359,10 +359,10 @@ const DPRPage = () => {
                 { table: "file_tags", desc: "Many-to-many relation between files and tags with confidence scores", cols: "4 columns" },
                 { table: "notifications", desc: "User notifications for expiry alerts and system messages", cols: "8 columns" },
                 { table: "shared_links", desc: "Shareable file links with tokens, expiration, and view-once support", cols: "8 columns" },
-                { table: "teams", desc: "Team definitions with owner reference", cols: "5 columns" },
+                { table: "Communities", desc: "Team definitions with owner reference", cols: "5 columns" },
                 { table: "team_members", desc: "Team membership with role assignments", cols: "5 columns" },
-                { table: "team_folders", desc: "Shared folders within teams", cols: "5 columns" },
-                { table: "team_folder_files", desc: "Files assigned to team folders", cols: "5 columns" },
+                { table: "team_folders", desc: "Shared folders within Communities", cols: "5 columns" },
+                { table: "team_folder_files", desc: "Files assigned to Community folders", cols: "5 columns" },
                 { table: "google_drive_tokens", desc: "OAuth tokens for Google Drive integration", cols: "7 columns" },
                 { table: "analytics_events", desc: "Event tracking for user activity analytics", cols: "5 columns" },
                 { table: "user_roles", desc: "Role-based access control (admin, moderator, user)", cols: "3 columns" },
@@ -421,7 +421,7 @@ const DPRPage = () => {
                 { phase: "Phase 1 — Foundation", status: "✅ Complete", date: "Jan–Feb 2026", items: ["User authentication with email verification", "File upload with cloud storage", "Basic dashboard with file management", "Profile setup and onboarding flow"] },
                 { phase: "Phase 2 — Smart Integration", status: "✅ Complete", date: "Feb 2026", items: ["Smart automated file organization (summary, key details, text extraction)", "Smart categorization into document types", "Automatic tag assignment with confidence scores", "Expiry date detection and notification system"] },
                 { phase: "Phase 3 — Advanced Features", status: "✅ Complete", date: "Feb–Mar 2026", items: ["9-mode search engine with semantic & entity search", "AI document chat with streaming responses", "Document comparison engine", "Smart folders with deep categorization", "Secure sharing with time-limited & view-once links"] },
-                { phase: "Phase 4 — Integrations", status: "✅ Complete", date: "Mar 2026", items: ["Google Drive integration (import/export)", "WhatsApp bot for document search", "Analytics dashboard with event tracking", "Teams & collaboration with role-based access", "Admin panel for user management"] },
+                { phase: "Phase 4 — Integrations", status: "✅ Complete", date: "Mar 2026", items: ["Google Drive integration (import/export)", "WhatsApp bot for document search", "Analytics dashboard with event tracking", "Communities & collaboration with role-based access", "Admin panel for user management"] },
               ].map((phase, i) => (
                 <div key={i} className="p-4 rounded-lg border border-border space-y-3">
                   <div className="flex items-center justify-between flex-wrap gap-2">

@@ -3,89 +3,63 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   Folder, FolderOpen, ChevronRight, Loader2, FileText, Briefcase, Heart, Shield,
   Car, Home, Receipt, Image, IdCard, RefreshCw, Star, Eye, Download, GripVertical,
-  Layers, MessageCircle,
+  Layers, MessageCircle, Sparkles,
 } from "lucide-react";
 import AppLayout from "@/components/AppLayout";
 import { useFiles, FileWithTags } from "@/hooks/useFiles";
+import { useSmartFolders, SmartFolder, SubFolder, iconMap } from "@/hooks/useSmartFolders";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { viewFile, downloadFile } from "@/lib/fileUrl";
 import { useNavigate } from "react-router-dom";
+import { FileContextMenu } from "@/components/FileContextMenu";
 
-// --- Types ---
-interface SubFolder {
-  name: string;
-  fileIds: string[];
-  subfolders?: SubFolder[]; // deep categorization
-}
-
-interface SmartFolder {
-  name: string;
-  icon: string;
-  subfolders: SubFolder[];
-}
-
-// --- Icon map ---
-const iconMap: Record<string, any> = {
-  folder: Folder, briefcase: Briefcase, heart: Heart, shield: Shield,
-  car: Car, home: Home, receipt: Receipt, "file-text": FileText, image: Image, "id-card": IdCard,
-};
-
-// --- Storage keys ---
-const SMART_FOLDERS_KEY = "Cluedox_smart_folders";
-const SMART_FOLDERS_FILE_COUNT_KEY = "Cluedox_smart_folders_count";
-const PINNED_FOLDERS_KEY = "Cluedox_pinned_folders";
-
-function loadSmartFolders(): SmartFolder[] {
-  try { return JSON.parse(localStorage.getItem(SMART_FOLDERS_KEY) || "[]"); }
-  catch { return []; }
-}
-
-function saveSmartFolders(folders: SmartFolder[], fileCount: number) {
-  localStorage.setItem(SMART_FOLDERS_KEY, JSON.stringify(folders));
-  localStorage.setItem(SMART_FOLDERS_FILE_COUNT_KEY, String(fileCount));
-}
-
-function getSavedFileCount(): number {
-  return parseInt(localStorage.getItem(SMART_FOLDERS_FILE_COUNT_KEY) || "0", 10);
-}
-
-function loadPinnedFolders(): string[] {
-  try { return JSON.parse(localStorage.getItem(PINNED_FOLDERS_KEY) || "[]"); }
-  catch { return []; }
-}
-
-function savePinnedFolders(pinned: string[]) {
-  localStorage.setItem(PINNED_FOLDERS_KEY, JSON.stringify(pinned));
-}
+// Types and storage logic moved to useSmartFolders hook
 
 // --- File Item Component ---
 const FileItem = ({ file, provided }: { file: FileWithTags; provided?: any }) => {
   const navigate = useNavigate();
+  const isAnalysing = file.file_status === "analysing";
+  const isReady = file.file_status === "ready";
 
   return (
-    <div
-      className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-secondary/30 text-sm group transition-colors"
+    <FileContextMenu
+      resource={{ id: file.id, name: file.file_name, type: "file" }}
+      actions={{
+        onOpen: () => viewFile(file.file_url),
+        onDownload: () => downloadFile(file.file_url, file.file_name),
+        onChat: () => navigate(`/chat?fileId=${file.id}`),
+        onAnalyze: () => { /* Add analysis logic if needed */ },
+      }}
     >
-      {provided && (
-        <div {...(provided?.dragHandleProps || {})} className="cursor-grab active:cursor-grabbing opacity-0 group-hover:opacity-60 transition-opacity">
-          <GripVertical className="w-3 h-3 text-muted-foreground" />
+      <div
+        className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-secondary/30 text-sm group transition-colors cursor-pointer"
+      >
+        {provided && (
+          <div {...(provided?.dragHandleProps || {})} className="cursor-grab active:cursor-grabbing opacity-0 group-hover:opacity-60 transition-opacity">
+            <GripVertical className="w-3 h-3 text-muted-foreground" />
+          </div>
+        )}
+        <div className="relative">
+          <FileText className={cn("w-3.5 h-3.5 shrink-0", isReady ? "text-emerald-500" : "text-muted-foreground")} />
+          {isAnalysing && (
+            <div className="absolute -top-1 -right-1">
+              <Loader2 className="w-2 h-2 animate-spin text-amber-500" />
+            </div>
+          )}
         </div>
-      )}
-      <FileText className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
-      <span className="truncate flex-1">{file.file_name}</span>
-      <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
-        <button
-          onClick={(e) => { e.stopPropagation(); navigate(`/chat?fileId=${file.id}`); }}
-          title="Chat"
-          className="p-1.5 rounded-md text-muted-foreground hover:text-accent hover:bg-accent/10 transition-colors"
-        >
-          <MessageCircle className="w-3.5 h-3.5" />
-        </button>
-        {file.file_url && (
-          <>
+        <span className={cn("truncate flex-1", !isReady && "text-muted-foreground/70")}>{file.file_name}</span>
+        <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+          <button
+            onClick={(e) => { e.stopPropagation(); navigate(`/chat?fileId=${file.id}`); }}
+            title="Chat"
+            className="p-1.5 rounded-md text-muted-foreground hover:text-accent hover:bg-accent/10 transition-colors"
+          >
+            <MessageCircle className="w-3.5 h-3.5" />
+          </button>
+          {file.file_url && (
             <button
               onClick={(e) => { e.stopPropagation(); viewFile(file.file_url); }}
               title="View"
@@ -93,58 +67,69 @@ const FileItem = ({ file, provided }: { file: FileWithTags; provided?: any }) =>
             >
               <Eye className="w-3.5 h-3.5" />
             </button>
-            <button
-              onClick={(e) => { e.stopPropagation(); downloadFile(file.file_url, file.file_name); }}
-              title="Download"
-              className="p-1.5 rounded-md text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors"
-            >
-              <Download className="w-3.5 h-3.5" />
-            </button>
-          </>
-        )}
+          )}
+        </div>
       </div>
-    </div>
+    </FileContextMenu>
   );
 };
 
 // --- Deep SubFolder Component ---
-const DeepSubFolder = ({ sub, files }: { sub: SubFolder; files: FileWithTags[] | undefined }) => {
+const DeepSubFolder = ({ sub, folderName, parentSubName, files }: { sub: SubFolder; folderName: string; parentSubName: string; files: FileWithTags[] | undefined }) => {
   const [expanded, setExpanded] = useState(false);
+  const navigate = useNavigate();
 
   return (
-    <div className="ml-4">
-      <button
-        onClick={() => setExpanded(!expanded)}
-        className="w-full flex items-center gap-2 p-2 rounded-lg hover:bg-secondary/20 transition-colors text-left"
-      >
-        <Folder className="w-3.5 h-3.5 text-muted-foreground" />
-        <span className="text-xs font-medium flex-1">{sub.name}</span>
-        <span className="text-[10px] text-muted-foreground">{sub.fileIds.length}</span>
-        <ChevronRight className={cn("w-3 h-3 text-muted-foreground transition-transform", expanded && "rotate-90")} />
-      </button>
-      <AnimatePresence>
-        {expanded && (
-          <motion.div
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: "auto", opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            className="overflow-hidden ml-4"
-          >
-            {sub.fileIds.map(fid => {
-              const file = files?.find(f => f.id === fid);
-              return file ? <FileItem key={fid} file={file} /> : null;
-            })}
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </div>
+    <FileContextMenu
+      resource={{ id: sub.name, name: sub.name, type: "folder" }}
+      actions={{
+        onOpen: () => setExpanded(!expanded),
+        onChat: () => navigate(`/chat?folder=${folderName}&subfolder=${parentSubName}&deepSub=${sub.name}`),
+      }}
+    >
+      <div className="ml-4">
+        <button
+          onClick={() => setExpanded(!expanded)}
+          className="w-full flex items-center gap-2 p-2 rounded-lg hover:bg-secondary/20 transition-colors text-left"
+        >
+          <Folder className="w-3.5 h-3.5 text-muted-foreground" />
+          <span className="text-xs font-medium flex-1">{sub.name}</span>
+          <span className="text-[10px] text-muted-foreground">{sub.fileIds.length}</span>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={(e) => { e.stopPropagation(); navigate(`/chat?folder=${folderName}&subfolder=${parentSubName}&deepSub=${sub.name}`); }}
+              title="Chat with this sub-category"
+              className="p-1 rounded-md text-muted-foreground hover:text-accent hover:bg-accent/10 transition-colors"
+            >
+              <MessageCircle className="w-3.5 h-3.5" />
+            </button>
+          </div>
+          <ChevronRight className={cn("w-3 h-3 text-muted-foreground transition-transform", expanded && "rotate-90")} />
+        </button>
+        <AnimatePresence>
+          {expanded && (
+            <motion.div
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: "auto", opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              className="overflow-hidden ml-4"
+            >
+              {sub.fileIds.map(fid => {
+                const file = files?.find(f => f.id === fid);
+                return file ? <FileItem key={fid} file={file} /> : null;
+              })}
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+    </FileContextMenu>
   );
 };
 
 // --- SubFolder Component with Deep Categorize ---
 const SubFolderItem = ({
   sub, folderName, files, folders, setFolders, currentFileCount,
-  dragState, setDragState,
+  dragState, setDragState, saveFolders,
 }: {
   sub: SubFolder;
   folderName: string;
@@ -154,13 +139,15 @@ const SubFolderItem = ({
   currentFileCount: number;
   dragState: DragState | null;
   setDragState: (s: DragState | null) => void;
+  saveFolders: (f: SmartFolder[], count: number) => void;
 }) => {
   const [expanded, setExpanded] = useState(false);
   const [deepLoading, setDeepLoading] = useState(false);
+  const navigate = useNavigate();
   const subKey = `${folderName}/${sub.name}`;
 
-  const deepCategorize = async (e: React.MouseEvent) => {
-    e.stopPropagation();
+  const deepCategorize = async (e?: React.MouseEvent) => {
+    e?.stopPropagation();
     if (sub.fileIds.length < 2) {
       toast.info("Need at least 2 files to deep categorize");
       return;
@@ -190,7 +177,7 @@ const SubFolderItem = ({
           };
         });
         setFolders(updated);
-        saveSmartFolders(updated, currentFileCount);
+        saveFolders(updated, currentFileCount);
         toast.success(`"${sub.name}" broken into ${data.subfolders.length} sub-categories!`);
         setExpanded(true);
       }
@@ -225,69 +212,77 @@ const SubFolderItem = ({
     });
 
     setFolders(updated);
-    saveSmartFolders(updated, currentFileCount);
+    saveFolders(updated, currentFileCount);
     setDragState(null);
     toast.success("File moved!");
   };
 
   return (
-    <div
-      onDragOver={(e) => { e.preventDefault(); e.currentTarget.classList.add("ring-2", "ring-primary/40"); }}
-      onDragLeave={(e) => { e.currentTarget.classList.remove("ring-2", "ring-primary/40"); }}
-      onDrop={handleDrop}
-      className="rounded-lg transition-all"
+    <FileContextMenu
+      resource={{ id: sub.name, name: sub.name, type: "folder" }}
+      actions={{
+        onOpen: () => setExpanded(!expanded),
+        onChat: () => navigate(`/chat?folder=${folderName}&subfolder=${sub.name}`),
+        onAnalyze: () => deepCategorize(),
+      }}
     >
-      <button
-        onClick={() => setExpanded(!expanded)}
-        className="w-full flex items-center gap-3 p-3 rounded-lg hover:bg-secondary/30 transition-colors text-left"
+      <div
+        onDragOver={(e) => { e.preventDefault(); e.currentTarget.classList.add("ring-2", "ring-primary/40"); }}
+        onDragLeave={(e) => { e.currentTarget.classList.remove("ring-2", "ring-primary/40"); }}
+        onDrop={handleDrop}
+        className="rounded-lg transition-all cursor-pointer"
       >
-        <Folder className="w-4 h-4 text-accent" />
-        <span className="text-sm font-medium flex-1">{sub.name}</span>
-        <span className="text-xs text-muted-foreground">{sub.fileIds.length}</span>
-        {sub.fileIds.length >= 2 && (
-          <button
-            onClick={deepCategorize}
-            disabled={deepLoading}
-            title="Deep categorize this subfolder"
-            className="p-1 rounded-md text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors"
-          >
-            {deepLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Layers className="w-3.5 h-3.5" />}
-          </button>
-        )}
-        <ChevronRight className={cn("w-3 h-3 text-muted-foreground transition-transform", expanded && "rotate-90")} />
-      </button>
-      <AnimatePresence>
-        {expanded && (
-          <motion.div
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: "auto", opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            className="overflow-hidden ml-7 space-y-0.5"
-          >
-            {/* Deep sub-categories if they exist */}
-            {sub.subfolders && sub.subfolders.length > 0 ? (
-              sub.subfolders.map(deepSub => (
-                <DeepSubFolder key={deepSub.name} sub={deepSub} files={files} />
-              ))
-            ) : (
-              sub.fileIds.map(fid => {
-                const file = files?.find(f => f.id === fid);
-                return file ? (
-                  <div
-                    key={fid}
-                    draggable
-                    onDragStart={() => setDragState({ fileId: fid, fromFolder: folderName, fromSub: sub.name })}
-                    onDragEnd={() => setDragState(null)}
-                  >
-                    <FileItem file={file} provided={{ dragHandleProps: {} }} />
-                  </div>
-                ) : null;
-              })
-            )}
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </div>
+        <button
+          onClick={() => setExpanded(!expanded)}
+          className="w-full flex items-center gap-3 p-3 rounded-lg hover:bg-secondary/30 transition-colors text-left"
+        >
+          <Folder className="w-4 h-4 text-accent" />
+          <span className="text-sm font-medium flex-1">{sub.name}</span>
+          <span className="text-xs text-muted-foreground">{sub.fileIds.length}</span>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={(e) => { e.stopPropagation(); navigate(`/chat?folder=${folderName}&subfolder=${sub.name}`); }}
+              title="Chat with this subfolder"
+              className="p-1 rounded-md text-muted-foreground hover:text-accent hover:bg-accent/10 transition-colors"
+            >
+              <MessageCircle className="w-3.5 h-3.5" />
+            </button>
+          </div>
+          <ChevronRight className={cn("w-3 h-3 text-muted-foreground transition-transform", expanded && "rotate-90")} />
+        </button>
+        <AnimatePresence>
+          {expanded && (
+            <motion.div
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: "auto", opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              className="overflow-hidden ml-7 space-y-0.5"
+            >
+              {/* Deep sub-categories if they exist */}
+              {sub.subfolders && sub.subfolders.length > 0 ? (
+                sub.subfolders.map(deepSub => (
+                  <DeepSubFolder key={deepSub.name} sub={deepSub} folderName={folderName} parentSubName={sub.name} files={files} />
+                ))
+              ) : (
+                sub.fileIds.map(fid => {
+                  const file = files?.find(f => f.id === fid);
+                  return file ? (
+                    <div
+                      key={fid}
+                      draggable
+                      onDragStart={() => setDragState({ fileId: fid, fromFolder: folderName, fromSub: sub.name })}
+                      onDragEnd={() => setDragState(null)}
+                    >
+                      <FileItem file={file} provided={{ dragHandleProps: {} }} />
+                    </div>
+                  ) : null;
+                })
+              )}
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+    </FileContextMenu>
   );
 };
 
@@ -301,13 +296,18 @@ interface DragState {
 // --- Main Page ---
 const SmartFoldersPage = () => {
   const { data: files } = useFiles();
-  const [folders, setFolders] = useState<SmartFolder[]>(loadSmartFolders);
+  const {
+    folders, setFolders, saveFolders, pinnedFolders, togglePin, getSavedFileCount
+  } = useSmartFolders();
+
   const [loading, setLoading] = useState(false);
   const [deepAllLoading, setDeepAllLoading] = useState(false);
+  const [analysingFolders, setAnalysingFolders] = useState<string[]>([]);
   const [expandedFolder, setExpandedFolder] = useState<string | null>(null);
-  const [pinnedFolders, setPinnedFolders] = useState<string[]>(loadPinnedFolders);
-  const [dragState, setDragState] = useState<DragState | null>(null);
   const navigate = useNavigate();
+  const [dragState, setDragState] = useState<DragState | null>(null);
+
+  const { getAllFileIdsInFolder } = useSmartFolders();
 
   const currentFileCount = files?.length || 0;
   const savedFileCount = getSavedFileCount();
@@ -318,16 +318,6 @@ const SmartFoldersPage = () => {
       categorize();
     }
   }, [files]);
-
-  const togglePin = useCallback((folderName: string) => {
-    setPinnedFolders(prev => {
-      const next = prev.includes(folderName)
-        ? prev.filter(n => n !== folderName)
-        : [...prev, folderName];
-      savePinnedFolders(next);
-      return next;
-    });
-  }, []);
 
   const sortedFolders = [...folders].sort((a, b) => {
     const aP = pinnedFolders.includes(a.name) ? 0 : 1;
@@ -354,8 +344,7 @@ const SmartFoldersPage = () => {
       if (!resp.ok) throw new Error("Failed to categorize");
       const data = await resp.json();
       const newFolders = data.folders || [];
-      setFolders(newFolders);
-      saveSmartFolders(newFolders, currentFileCount);
+      saveFolders(newFolders, currentFileCount);
       toast.success("Files organized into smart folders!");
     } catch {
       toast.error("Failed to categorize files");
@@ -395,8 +384,7 @@ const SmartFoldersPage = () => {
           } catch { /* skip individual failures */ }
         }
       }
-      setFolders(updated);
-      saveSmartFolders(updated, currentFileCount);
+      saveFolders(updated, currentFileCount);
       if (totalNew > 0) {
         toast.success(`Deep categorized into ${totalNew} new sub-categories!`);
       } else {
@@ -406,6 +394,48 @@ const SmartFoldersPage = () => {
       toast.error("Failed to deep categorize");
     } finally {
       setDeepAllLoading(false);
+    }
+  };
+
+  const analyzeFolder = async (folder: SmartFolder) => {
+    const fileIds = getAllFileIdsInFolder(folder);
+    const unanalyzedFiles = files?.filter(f => fileIds.includes(f.id) && f.file_status !== "ready") || [];
+    
+    if (unanalyzedFiles.length === 0) {
+      toast.info("All files in this folder are already analysed ✨");
+      return;
+    }
+
+    setAnalysingFolders(prev => [...prev, folder.name]);
+    toast.info(`Starting analysis for ${unanalyzedFiles.length} files...`);
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      // Process in small batches to avoid edge function timeout
+      for (const file of unanalyzedFiles) {
+        try {
+          await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/analyze-file`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${session?.access_token}`,
+            },
+            body: JSON.stringify({ 
+              fileId: file.id, 
+              fileName: file.file_name, 
+              fileType: file.file_type 
+            }),
+          });
+        } catch (err) {
+          console.error(`Failed to analyze ${file.file_name}`, err);
+        }
+      }
+      toast.success(`Analysis started for ${folder.name}. Files will update as they finish.`);
+    } catch {
+      toast.error("Failed to start bulk analysis");
+    } finally {
+      setAnalysingFolders(prev => prev.filter(n => n !== folder.name));
     }
   };
 
@@ -491,7 +521,29 @@ const SmartFoldersPage = () => {
                         <p className="font-semibold text-sm">{folder.name}</p>
                         <p className="text-xs text-muted-foreground">{totalFiles} files · {folder.subfolders.length} subfolders</p>
                       </div>
-                      <ChevronRight className={cn("w-4 h-4 text-muted-foreground transition-transform", isExpanded && "rotate-90")} />
+                      <div className="flex items-center gap-1">
+                        <button
+                          onClick={(e) => { e.stopPropagation(); analyzeFolder(folder); }}
+                          disabled={analysingFolders.includes(folder.name)}
+                          title="Analyse all files in folder"
+                          className={cn(
+                            "p-1.5 rounded-md transition-colors",
+                            analysingFolders.includes(folder.name) 
+                              ? "text-amber-500 animate-pulse" 
+                              : "text-muted-foreground hover:text-amber-500 hover:bg-amber-500/10"
+                          )}
+                        >
+                          {analysingFolders.includes(folder.name) ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+                        </button>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); navigate(`/chat?folder=${folder.name}`); }}
+                          title="Chat with entire folder"
+                          className="p-1.5 rounded-md text-muted-foreground hover:text-accent hover:bg-accent/10 transition-colors"
+                        >
+                          <MessageCircle className="w-4 h-4" />
+                        </button>
+                        <ChevronRight className={cn("w-4 h-4 text-muted-foreground transition-transform", isExpanded && "rotate-90")} />
+                      </div>
                     </button>
                   </div>
 
@@ -514,6 +566,7 @@ const SmartFoldersPage = () => {
                             currentFileCount={currentFileCount}
                             dragState={dragState}
                             setDragState={setDragState}
+                            saveFolders={saveFolders}
                           />
                         ))}
                       </motion.div>

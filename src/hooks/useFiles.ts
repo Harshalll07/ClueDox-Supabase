@@ -20,6 +20,7 @@ export interface FileWithTags {
   expiry_date: string | null;
   entities: FileEntity[];
   semantic_keywords: string | null;
+  file_status: "uploading" | "analysing" | "ready" | "error";
   created_at: string;
   updated_at: string;
   user_id: string;
@@ -27,27 +28,64 @@ export interface FileWithTags {
 }
 
 async function fetchFiles(): Promise<FileWithTags[]> {
-  // Fetch files in pages to avoid 1000-row limit
-  const allFiles: any[] = [];
-  const pageSize = 1000;
-  let page = 0;
-  let hasMore = true;
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return [];
 
-  while (hasMore) {
-    const { data: files, error } = await supabase
+  // 1. Get owned files IDs
+  const { data: ownedFiles, error: ownedError } = await supabase
+    .from("files")
+    .select("id")
+    .eq("user_id", user.id);
+  
+  if (ownedError) throw ownedError;
+  const fileIdsToFetch = new Set<string>((ownedFiles || []).map(f => f.id));
+
+  // 2. Get directly shared file IDs
+  const { data: directShares } = await supabase
+    .from("resource_shares" as any)
+    .select("resource_id")
+    .eq("shared_with_user_id", user.id)
+    .eq("resource_type", "file");
+  
+  if (directShares) {
+    directShares.forEach((s: any) => fileIdsToFetch.add(s.resource_id));
+  }
+
+  // 3. Get files from shared folders
+  const { data: sharedFolders } = await supabase
+    .from("resource_shares" as any)
+    .select("resource_id")
+    .eq("shared_with_user_id", user.id)
+    .eq("resource_type", "folder");
+  
+  if (sharedFolders && sharedFolders.length > 0) {
+    const folderIds = sharedFolders.map((sf: any) => sf.resource_id);
+    const { data: folderFiles } = await supabase
+      .from("user_folder_files")
+      .select("file_id")
+      .in("folder_id", folderIds);
+    
+    if (folderFiles) {
+      folderFiles.forEach(ff => fileIdsToFetch.add(ff.file_id));
+    }
+  }
+
+  const allIds = Array.from(fileIdsToFetch);
+  if (allIds.length === 0) return [];
+
+  // 4. Fetch the actual file records for all collected IDs
+  const allFiles: any[] = [];
+  const pageSize = 500;
+  for (let i = 0; i < allIds.length; i += pageSize) {
+    const chunk = allIds.slice(i, i + pageSize);
+    const { data, error } = await supabase
       .from("files")
       .select("*")
-      .order("upload_date", { ascending: false })
-      .range(page * pageSize, (page + 1) * pageSize - 1);
+      .in("id", chunk)
+      .order("upload_date", { ascending: false });
 
     if (error) throw error;
-    if (!files || files.length === 0) {
-      hasMore = false;
-    } else {
-      allFiles.push(...files);
-      hasMore = files.length === pageSize;
-      page++;
-    }
+    if (data) allFiles.push(...data);
   }
 
   if (allFiles.length === 0) return [];

@@ -1,18 +1,25 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Grid3X3, List, Loader2, Download, Eye, FolderPlus, Folder, ChevronRight, ChevronLeft, MessageCircle, ArrowLeft, Trash2, FolderInput, RefreshCw, FileText, ArrowLeftRight, Info, Sparkles, Plus, Share2, PanelLeftClose, PanelLeft, Pencil } from "lucide-react";
+import { 
+  Share2, PanelLeftClose, PanelLeft, Pencil, Globe, 
+  Eye, Download, ArrowLeft, Grid3X3, List, 
+  MessageCircle, FolderPlus, Folder, Loader2 
+} from "lucide-react";
 import { downloadFile, viewFile } from "@/lib/fileUrl";
 import AppLayout from "@/components/AppLayout";
+import { FileContextMenu } from "@/components/FileContextMenu";
 import { Input } from "@/components/ui/input";
 import { useFiles } from "@/hooks/useFiles";
 import type { FileWithTags } from "@/hooks/useFiles";
 import FileDetailPanel from "@/components/FileDetailPanel";
 import { cn } from "@/lib/utils";
 import { getFileIcon, getFileColor, tagColors } from "@/data/mockFiles";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import ShareDialog from "@/components/ShareDialog";
+import { CollaboratorAvatars } from "@/components/CollaboratorAvatars";
+import { useSharing } from "@/hooks/useSharing";
 import {
   ContextMenu,
   ContextMenuContent,
@@ -79,19 +86,33 @@ const FilesPage = () => {
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
   const { data: files, isLoading } = useFiles();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const queryClient = useQueryClient();
 
   // Database-backed folder management
   const { folders, createFolder: createFolderMutation, deleteFolder: deleteFolderMutation, renameFolder: renameFolderMutation, addFileToFolder: addFileMutation, removeFileFromFolder: removeFileMutation } = useFolders();
 
-  const [activeFolder, setActiveFolder] = useState<string | null>(null);
+  const [activeFolder, setActiveFolder] = useState<string | null>(searchParams.get("folderId"));
   const [showNewFolder, setShowNewFolder] = useState(false);
+  
+  // Sync active folder with URL
+  useEffect(() => {
+    const folderId = searchParams.get("folderId");
+    if (folderId !== activeFolder) {
+      setActiveFolder(folderId);
+    }
+  }, [searchParams]);
   const [newFolderName, setNewFolderName] = useState("");
   const [dragOverFolder, setDragOverFolder] = useState<string | null>(null);
   const [renamingFolder, setRenamingFolder] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState("");
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [shareFile, setShareFile] = useState<{ id: string; name: string } | null>(null);
+  const [shareFolder, setShareFolder] = useState<{ id: string; name: string } | null>(null);
+
+  // Sharing hook for active folder
+  const { currentUserRole: folderRole } = useSharing(activeFolder || undefined, "folder");
+  const isEditor = folderRole === "owner" || folderRole === "editor";
 
   // File rename state
   const [renamingFile, setRenamingFile] = useState<{ id: string; name: string } | null>(null);
@@ -194,186 +215,32 @@ const FilesPage = () => {
     return matchesSearch && matchesCategory;
   });
 
-  // Context menu wrapper for file items
-  const FileContextMenu = ({ file, children }: { file: FileWithTags; children: React.ReactNode }) => {
-    const detail = toDetailFile(file);
-    const fileFolders = folders.filter(f => f.fileIds.includes(file.id));
-    const availableFolders = folders.filter(f => !f.fileIds.includes(file.id));
-
-    return (
-      <ContextMenu>
-        <ContextMenuContent className="w-56">
-          <ContextMenuLabel className="flex items-center gap-2 text-xs truncate">
-            <FileText className="w-3 h-3" />
-            {file.file_name}
-          </ContextMenuLabel>
-          <ContextMenuSeparator />
-
-          <ContextMenuItem onClick={() => setSelectedFile(detail)} className="gap-2 cursor-pointer">
-            <Info className="w-4 h-4" />
-            Open Details
-          </ContextMenuItem>
-
-          <ContextMenuItem
-            onClick={() => { setRenamingFile({ id: file.id, name: file.file_name }); setRenameFileName(file.file_name); }}
-            className="gap-2 cursor-pointer"
-          >
-            <Pencil className="w-4 h-4" />
-            Rename
-          </ContextMenuItem>
-
-          {file.file_url && (
-            <>
-              <ContextMenuItem onClick={() => viewFile(file.file_url)} className="gap-2 cursor-pointer">
-                <Eye className="w-4 h-4" />
-                Preview
-              </ContextMenuItem>
-              <ContextMenuItem onClick={() => downloadFile(file.file_url, file.file_name)} className="gap-2 cursor-pointer">
-                <Download className="w-4 h-4" />
-                Download
-              </ContextMenuItem>
-              <ContextMenuItem onClick={() => setShareFile({ id: file.id, name: file.file_name })} className="gap-2 cursor-pointer">
-                <Share2 className="w-4 h-4" />
-                Share Link
-              </ContextMenuItem>
-            </>
-          )}
-
-          <ContextMenuSeparator />
-
-          <ContextMenuItem onClick={() => navigate(`/chat?fileId=${file.id}`)} className="gap-2 cursor-pointer">
-            <MessageCircle className="w-4 h-4" />
-            Chat with Document
-          </ContextMenuItem>
-
-          <ContextMenuItem onClick={() => navigate(`/compare?fileA=${file.id}`)} className="gap-2 cursor-pointer">
-            <ArrowLeftRight className="w-4 h-4" />
-            Compare with...
-          </ContextMenuItem>
-
-          <ContextMenuItem onClick={() => handleReanalyze(file.id, file.file_name, file.file_type)} className="gap-2 cursor-pointer">
-            <RefreshCw className="w-4 h-4 text-muted-foreground mr-2" />
-            Refresh Smart Tags
-          </ContextMenuItem>
-
-          <ContextMenuSeparator />
-
-          {/* Add to folder submenu */}
-          <ContextMenuSub>
-            <ContextMenuSubTrigger className="gap-2 cursor-pointer">
-              <FolderInput className="w-4 h-4" />
-              Add to Folder
-            </ContextMenuSubTrigger>
-            <ContextMenuSubContent className="w-52">
-              {availableFolders.length > 0 ? (
-                availableFolders.map(folder => (
-                  <ContextMenuItem
-                    key={folder.id}
-                    onClick={() => handleAddFileToFolder(folder.id, file.id, folder.name)}
-                    className="gap-2 cursor-pointer"
-                  >
-                    <Folder className="w-3.5 h-3.5" />
-                    {folder.name}
-                  </ContextMenuItem>
-                ))
-              ) : (
-                <ContextMenuItem disabled className="gap-2 text-xs text-muted-foreground">
-                  No folders available
-                </ContextMenuItem>
-              )}
-              <ContextMenuSeparator />
-              <ContextMenuItem
-                onClick={() => setShowNewFolder(true)}
-                className="gap-2 cursor-pointer text-primary"
-              >
-                <Plus className="w-3.5 h-3.5" />
-                New Folder
-              </ContextMenuItem>
-            </ContextMenuSubContent>
-          </ContextMenuSub>
-
-          {/* Remove from current folder */}
-          {activeFolder && activeFolderData && (
-            <ContextMenuItem
-              onClick={() => handleRemoveFileFromFolder(activeFolderData.id, file.id)}
-              className="gap-2 cursor-pointer text-destructive focus:text-destructive"
-            >
-              <Folder className="w-4 h-4" />
-              Remove from Folder
-            </ContextMenuItem>
-          )}
-
-          {fileFolders.length > 0 && !activeFolder && (
-            <ContextMenuSub>
-              <ContextMenuSubTrigger className="gap-2 cursor-pointer text-destructive focus:text-destructive">
-                <Folder className="w-4 h-4" />
-                Remove from...
-              </ContextMenuSubTrigger>
-              <ContextMenuSubContent className="w-48">
-                {fileFolders.map(folder => (
-                  <ContextMenuItem
-                    key={folder.id}
-                    onClick={() => handleRemoveFileFromFolder(folder.id, file.id)}
-                    className="gap-2 cursor-pointer"
-                  >
-                    <Folder className="w-3.5 h-3.5" />
-                    {folder.name}
-                  </ContextMenuItem>
-                ))}
-              </ContextMenuSubContent>
-            </ContextMenuSub>
-          )}
-
-          <ContextMenuSeparator />
-
-          <ContextMenuItem
-            onClick={() => handleDeleteFile(file.id, file.file_name)}
-            className="gap-2 cursor-pointer text-destructive focus:text-destructive focus:bg-destructive/10"
-          >
-            <Trash2 className="w-4 h-4" />
-            Delete
-          </ContextMenuItem>
-        </ContextMenuContent>
-        <ContextMenuTrigger className="contents">
-          {children}
-        </ContextMenuTrigger>
-      </ContextMenu>
-    );
-  };
-
-  // Folder context menu
-  const FolderContextMenu = ({ folder, children }: { folder: { id: string; name: string; fileIds: string[] }; children: React.ReactNode }) => (
-    <ContextMenu>
-      <ContextMenuContent className="w-48">
-        <ContextMenuLabel className="text-xs">{folder.name}</ContextMenuLabel>
-        <ContextMenuSeparator />
-        <ContextMenuItem
-          onClick={() => { setRenamingFolder(folder.id); setRenameValue(folder.name); }}
-          className="gap-2 cursor-pointer"
-        >
-          <Pencil className="w-4 h-4" />
-          Rename
-        </ContextMenuItem>
-        <ContextMenuItem
-          onClick={() => handleDeleteFolder(folder.id)}
-          className="gap-2 cursor-pointer text-destructive focus:text-destructive focus:bg-destructive/10"
-        >
-          <Trash2 className="w-4 h-4" />
-          Delete Folder
-        </ContextMenuItem>
-      </ContextMenuContent>
-      <ContextMenuTrigger className="contents">
-        {children}
-      </ContextMenuTrigger>
-    </ContextMenu>
-  );
+  // The local context menu components have been replaced by the global FileContextMenu
 
   const renderFileCard = (file: FileWithTags, i: number) => {
     const detail = toDetailFile(file);
     const Icon = getFileIcon(detail.type);
     const color = getFileColor(detail.type);
     return (
-      <FileContextMenu key={file.id} file={file}>
+      <FileContextMenu
+        key={file.id}
+        resource={{ id: file.id, name: file.file_name, type: "file" }}
+        folders={folders}
+        currentFolderId={activeFolder}
+        isEditor={isEditor}
+        actions={{
+          onOpen: () => setSelectedFile(detail),
+          onDownload: () => file.file_url && downloadFile(file.file_url, file.file_name),
+          onShare: () => setShareFile({ id: file.id, name: file.file_name }),
+          onChat: () => navigate(`/chat?fileId=${file.id}`),
+          onAnalyze: () => handleReanalyze(file.id, file.file_name, file.file_type),
+          onRename: () => { setRenamingFile({ id: file.id, name: file.file_name }); setRenameFileName(file.file_name); },
+          onDelete: () => handleDeleteFile(file.id, file.file_name),
+          onCompare: () => navigate(`/compare?fileA=${file.id}`),
+          onAddToFolder: (fId) => handleAddFileToFolder(fId, file.id, ""),
+          onRemoveFromFolder: activeFolder ? () => handleRemoveFileFromFolder(activeFolder, file.id) : undefined,
+        }}
+      >
         <motion.div
           layout
           initial={{ opacity: 0, scale: 0.9 }}
@@ -471,7 +338,25 @@ const FilesPage = () => {
     const Icon = getFileIcon(detail.type);
     const color = getFileColor(detail.type);
     return (
-      <FileContextMenu key={file.id} file={file}>
+      <FileContextMenu
+        key={file.id}
+        resource={{ id: file.id, name: file.file_name, type: "file" }}
+        folders={folders}
+        currentFolderId={activeFolder}
+        isEditor={isEditor}
+        actions={{
+          onOpen: () => setSelectedFile(detail),
+          onDownload: () => file.file_url && downloadFile(file.file_url, file.file_name),
+          onShare: () => setShareFile({ id: file.id, name: file.file_name }),
+          onChat: () => navigate(`/chat?fileId=${file.id}`),
+          onAnalyze: () => handleReanalyze(file.id, file.file_name, file.file_type),
+          onRename: () => { setRenamingFile({ id: file.id, name: file.file_name }); setRenameFileName(file.file_name); },
+          onDelete: () => handleDeleteFile(file.id, file.file_name),
+          onCompare: () => navigate(`/compare?fileA=${file.id}`),
+          onAddToFolder: (fId) => handleAddFileToFolder(fId, file.id, ""),
+          onRemoveFromFolder: activeFolder ? () => handleRemoveFileFromFolder(activeFolder, file.id) : undefined,
+        }}
+      >
         <motion.div
           layout
           initial={{ opacity: 0, x: -20 }}
@@ -569,15 +454,17 @@ const FilesPage = () => {
           <div className="bg-gradient-to-br from-card to-card/80 rounded-3xl p-6 shadow-sm backdrop-blur-sm border border-border/30">
             <div className="flex items-center justify-between mb-4">
               <h2 className="font-bold text-base text-foreground">Folders</h2>
-              <motion.button
-                whileHover={{ scale: 1.1 }}
-                whileTap={{ scale: 0.95 }}
-                onClick={() => setShowNewFolder(true)}
-                className="p-1.5 rounded-lg hover:bg-primary/10 text-primary transition-colors"
-                title="New folder"
-              >
-                <FolderPlus className="w-4 h-4" />
-              </motion.button>
+              {isEditor && (
+                <motion.button
+                  whileHover={{ scale: 1.1 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={() => setShowNewFolder(true)}
+                  className="p-1.5 rounded-lg hover:bg-primary/10 text-primary transition-colors"
+                  title="New folder"
+                >
+                  <FolderPlus className="w-4 h-4" />
+                </motion.button>
+              )}
             </div>
 
             <motion.button
@@ -594,12 +481,24 @@ const FilesPage = () => {
             </motion.button>
 
             {folders.map((folder) => (
-              <FolderContextMenu key={folder.id} folder={folder}>
-                <motion.button
+              <FileContextMenu 
+                key={folder.id} 
+                resource={{ id: folder.id, name: folder.name, type: "folder" }}
+                isEditor={isEditor}
+                actions={{
+                  onOpen: () => setActiveFolder(activeFolder === folder.id ? null : folder.id),
+                  onShare: () => setShareFolder({ id: folder.id, name: folder.name }),
+                  onChat: () => navigate(`/chat?userFolderId=${folder.id}`),
+                  onRename: () => { setRenamingFolder(folder.id); setRenameValue(folder.name); },
+                  onDelete: () => handleDeleteFolder(folder.id),
+                }}
+              >
+                <motion.div
+                  role="button"
                   whileHover={{ x: 4 }}
-                  onDragOver={(e) => { e.preventDefault(); setDragOverFolder(folder.id); }}
+                  onDragOver={(e: React.DragEvent) => { e.preventDefault(); setDragOverFolder(folder.id); }}
                   onDragLeave={() => setDragOverFolder(null)}
-                  onDrop={(e) => {
+                  onDrop={(e: React.DragEvent) => {
                     e.preventDefault();
                     setDragOverFolder(null);
                     const fileId = e.dataTransfer.getData("text/plain");
@@ -607,7 +506,7 @@ const FilesPage = () => {
                   }}
                   onClick={() => setActiveFolder(activeFolder === folder.id ? null : folder.id)}
                   className={cn(
-                    "w-full text-left px-4 py-2.5 rounded-2xl text-sm font-medium transition-all duration-300 flex items-center gap-2",
+                    "w-full text-left px-4 py-2.5 rounded-2xl text-sm font-medium transition-all duration-300 flex items-center gap-2 cursor-pointer",
                     activeFolder === folder.id
                       ? "bg-primary text-primary-foreground shadow-lg shadow-primary/30"
                       : dragOverFolder === folder.id
@@ -617,11 +516,23 @@ const FilesPage = () => {
                 >
                   <Folder className="w-3.5 h-3.5 shrink-0" />
                   <span className="truncate flex-1">{folder.name}</span>
-                  <span className={cn("text-xs px-1.5 rounded-lg", activeFolder === folder.id ? "bg-primary-foreground/20" : "bg-muted/50")}>
-                    {folder.fileIds.length}
-                  </span>
-                </motion.button>
-              </FolderContextMenu>
+                  <div className="flex items-center gap-1">
+                    <button
+                      onClick={(e) => { e.stopPropagation(); navigate(`/chat?userFolderId=${folder.id}`); }}
+                      title="Chat with folder"
+                      className={cn(
+                        "p-1 rounded-md transition-colors",
+                        activeFolder === folder.id ? "hover:bg-primary-foreground/20" : "hover:bg-primary/10 text-muted-foreground hover:text-primary"
+                      )}
+                    >
+                      <MessageCircle className="w-3 h-3" />
+                    </button>
+                    <span className={cn("text-xs px-1.5 rounded-lg", activeFolder === folder.id ? "bg-primary-foreground/20" : "bg-muted/50")}>
+                      {folder.fileIds.length}
+                    </span>
+                  </div>
+                </motion.div>
+              </FileContextMenu>
             ))}
 
             {folders.length === 0 && (
@@ -673,12 +584,14 @@ const FilesPage = () => {
         <div className="md:hidden mb-4 space-y-3">
           {/* Folders */}
           <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
-            <button
-              onClick={() => setShowNewFolder(true)}
-              className="shrink-0 p-2 rounded-xl border border-dashed border-border text-muted-foreground hover:text-primary hover:border-primary transition-colors"
-            >
-              <FolderPlus className="w-4 h-4" />
-            </button>
+            {isEditor && (
+              <button
+                onClick={() => setShowNewFolder(true)}
+                className="shrink-0 p-2 rounded-xl border border-dashed border-border text-muted-foreground hover:text-primary hover:border-primary transition-colors"
+              >
+                <FolderPlus className="w-4 h-4" />
+              </button>
+            )}
             <button
               onClick={() => setActiveFolder(null)}
               className={cn(
@@ -757,7 +670,12 @@ const FilesPage = () => {
                   </div>
                 ) : (
                   <>
-                    <h1 className="text-2xl sm:text-4xl font-bold text-foreground" style={{ fontFamily: "'Playfair Display', serif" }}>Files</h1>
+                    <div className="flex items-center gap-4">
+                      <h1 className="text-2xl sm:text-4xl font-bold text-foreground" style={{ fontFamily: "'Playfair Display', serif" }}>Files</h1>
+                      {activeFolder && (
+                        <CollaboratorAvatars resourceId={activeFolder} resourceType="folder" />
+                      )}
+                    </div>
                     <p className="text-muted-foreground text-sm mt-2">{filtered.length} files · Right-click for options</p>
                   </>
                 )}
@@ -768,6 +686,17 @@ const FilesPage = () => {
                 transition={{ delay: 0.2, duration: 0.4 }}
                 className="flex items-center gap-2 sm:gap-3 w-full sm:w-auto"
               >
+                {activeFolder && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setShareFolder({ id: activeFolder, name: activeFolderData?.name || "Folder" })}
+                    className="rounded-xl gap-2 h-10 border-primary/20 hover:bg-primary/5 hidden sm:flex"
+                  >
+                    <Share2 className="w-4 h-4" />
+                    Share Folder
+                  </Button>
+                )}
                 <button
                   onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
                   className="hidden md:flex p-2 rounded-xl text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
@@ -912,13 +841,26 @@ const FilesPage = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Share Dialog */}
-      <ShareDialog
-        open={!!shareFile}
-        onOpenChange={(open) => { if (!open) setShareFile(null); }}
-        fileId={shareFile?.id || ""}
-        fileName={shareFile?.name || ""}
-      />
+      {/* Share Dialogs */}
+      {shareFile && (
+        <ShareDialog
+          open={!!shareFile}
+          onOpenChange={(open) => { if (!open) setShareFile(null); }}
+          resourceId={shareFile.id}
+          resourceName={shareFile.name}
+          resourceType="file"
+        />
+      )}
+
+      {shareFolder && (
+        <ShareDialog
+          open={!!shareFolder}
+          onOpenChange={(open) => { if (!open) setShareFolder(null); }}
+          resourceId={shareFolder.id}
+          resourceName={shareFolder.name}
+          resourceType="folder"
+        />
+      )}
     </AppLayout>
   );
 };

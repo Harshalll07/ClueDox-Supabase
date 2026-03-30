@@ -1,12 +1,16 @@
 import { useState, useRef, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { motion, AnimatePresence } from "framer-motion";
-import { Send, Bot, User, Loader2, FileText, X } from "lucide-react";
+import { Send, Bot, User, Loader2, FileText, X, Folder, Plus } from "lucide-react";
 import AppLayout from "@/components/AppLayout";
 import { useFiles } from "@/hooks/useFiles";
+import { useSmartFolders } from "@/hooks/useSmartFolders";
+import { useFolders } from "@/hooks/useFolders";
+import { FolderPickerModal } from "@/components/chat/FolderPickerModal";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useSearchParams } from "react-router-dom";
+import { CollaboratorAvatars } from "@/components/CollaboratorAvatars";
 
 type Msg = { role: "user" | "assistant"; content: string };
 
@@ -98,21 +102,47 @@ function SimpleMarkdown({ content }: { content: string }) {
 
 const ChatPage = () => {
   const { data: files } = useFiles();
+  const { folders, getAllFileIdsInFolder, getFolderByPath } = useSmartFolders();
+  const { folders: userFolders } = useFolders();
   const [searchParams] = useSearchParams();
   const [messages, setMessages] = useState<Msg[]>([]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [selectedFileIds, setSelectedFileIds] = useState<string[]>([]);
-  const [showFilePicker, setShowFilePicker] = useState(false);
+  const [selectedFolderPaths, setSelectedFolderPaths] = useState<string[][]>([]); // Array of paths [folder, sub, deep]
+  const [selectedUserFolderIds, setSelectedUserFolderIds] = useState<string[]>([]);
+  const [showFolderPicker, setShowFolderPicker] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
 
-  // Auto-select file from URL query param
+  // Auto-select file or folder from URL query param
   useEffect(() => {
+    if (!files || folders.length === 0) return;
+
     const fileId = searchParams.get("fileId");
-    if (fileId && files?.some(f => f.id === fileId) && !selectedFileIds.includes(fileId)) {
+    if (fileId && files.some(f => f.id === fileId) && !selectedFileIds.includes(fileId)) {
       setSelectedFileIds(prev => prev.includes(fileId) ? prev : [fileId]);
     }
-  }, [searchParams, files]);
+
+    const folder = searchParams.get("folder");
+    const subfolder = searchParams.get("subfolder");
+    const deepSub = searchParams.get("deepSub");
+    const userFolderId = searchParams.get("userFolderId");
+
+    if (folder) {
+      const path = [folder];
+      if (subfolder) path.push(subfolder);
+      if (deepSub) path.push(deepSub);
+
+      const pathStr = path.join("/");
+      if (!selectedFolderPaths.some(p => p.join("/") === pathStr)) {
+        setSelectedFolderPaths(prev => [...prev, path]);
+      }
+    }
+
+    if (userFolderId && !selectedUserFolderIds.includes(userFolderId)) {
+      setSelectedUserFolderIds(prev => [...prev, userFolderId]);
+    }
+  }, [searchParams, files, folders, userFolders]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -137,9 +167,34 @@ const ChatPage = () => {
       });
     };
 
+    // Collect all file IDs from selected folders
+    const folderFileIds = selectedFolderPaths.flatMap(path => {
+      const folder = getFolderByPath(path);
+      return folder ? getAllFileIdsInFolder(folder) : [];
+    });
+
+    // Collect all file IDs from selected manual folders
+    const userFolderFileIds = selectedUserFolderIds.flatMap(id => {
+      const f = userFolders.find(x => x.id === id);
+      return f ? f.fileIds : [];
+    });
+
+    const allContextIds = Array.from(new Set([...selectedFileIds, ...folderFileIds, ...userFolderFileIds]));
+
+    // Help the AI by explicitly mentioning the selected folders in the context
+    let contextDescription = "";
+    const names = [
+      ...selectedFolderPaths.map(p => p[p.length - 1]),
+      ...selectedUserFolderIds.map(id => userFolders.find(x => x.id === id)?.name).filter(Boolean)
+    ];
+    
+    if (names.length > 0) {
+      contextDescription = `[Context: User has selected the following folders: ${names.join(", ")}. Please use these for the 'folder' context.]\n`;
+    }
+
     await streamChat({
-      messages: [...messages, userMsg],
-      fileIds: selectedFileIds,
+      messages: [...messages, { ...userMsg, content: contextDescription + userMsg.content }],
+      fileIds: allContextIds,
       onDelta: upsert,
       onDone: () => setIsLoading(false),
       onError: (e) => {
@@ -153,25 +208,78 @@ const ChatPage = () => {
     setSelectedFileIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
   };
 
+  const toggleFolderPath = (path: string[]) => {
+    const pathStr = path.join("/");
+    setSelectedFolderPaths(prev =>
+      prev.some(p => p.join("/") === pathStr)
+        ? prev.filter(p => p.join("/") !== pathStr)
+        : [...prev, path]
+    );
+  };
+  
+  const toggleUserFolder = (id: string) => {
+    setSelectedUserFolderIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+  };
+
   return (
     <AppLayout>
       <div className="max-w-3xl mx-auto h-[calc(100vh-6rem)] flex flex-col">
         {/* Header */}
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="mb-4">
-          <h1 className="text-2xl sm:text-3xl font-bold">AI Document Chat</h1>
-          <p className="text-muted-foreground text-sm mt-1">Ask questions about your documents</p>
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="mb-4 flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl sm:text-3xl font-bold">AI Document Chat</h1>
+            <p className="text-muted-foreground text-sm mt-1">Ask questions about your documents</p>
+          </div>
+          <div className="flex -space-x-1">
+            {selectedUserFolderIds.map(id => (
+              <CollaboratorAvatars key={id} resourceId={id} resourceType="folder" size="xs" />
+            ))}
+            {selectedFileIds.map(id => (
+              <CollaboratorAvatars key={id} resourceId={id} resourceType="file" size="xs" />
+            ))}
+          </div>
         </motion.div>
 
-        {/* File context pills */}
-        {selectedFileIds.length > 0 && (
+        {/* Context pills */}
+        {(selectedFileIds.length > 0 || selectedFolderPaths.length > 0) && (
           <div className="flex flex-wrap gap-2 mb-3">
+            {/* Folder Pills */}
+            {selectedFolderPaths.map((path, idx) => {
+              if (typeof getFolderByPath !== 'function') return null;
+              const folder = getFolderByPath(path);
+              const totalFiles = folder ? getAllFileIdsInFolder(folder).length : 0;
+              return (
+                <span key={`f-${idx}`} className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-full bg-accent/10 text-accent font-medium border border-accent/20">
+                  <Folder className="w-3 h-3" />
+                  {path[path.length - 1]} ({totalFiles} {totalFiles === 1 ? 'file' : 'files'})
+                  <button onClick={() => toggleFolderPath(path)} className="ml-1 hover:text-destructive transition-colors">
+                    <X className="w-3 h-3" />
+                  </button>
+                </span>
+              );
+            })}
+            {/* User Folder Pills */}
+            {selectedUserFolderIds.map(id => {
+              const folder = userFolders.find(f => f.id === id);
+              if (!folder) return null;
+              return (
+                <span key={`uf-${id}`} className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-full bg-accent/10 text-accent font-medium border border-accent/20">
+                  <Folder className="w-3 h-3" />
+                  {folder.name} ({folder.fileIds.length} files)
+                  <button onClick={() => toggleUserFolder(id)} className="ml-1 hover:text-destructive transition-colors">
+                    <X className="w-3 h-3" />
+                  </button>
+                </span>
+              );
+            })}
+            {/* File Pills */}
             {selectedFileIds.map(id => {
               const f = files?.find(f => f.id === id);
               return f ? (
-                <span key={id} className="inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded-full bg-primary/10 text-primary font-medium">
+                <span key={id} className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-full bg-primary/10 text-primary font-medium border border-primary/20">
                   <FileText className="w-3 h-3" />
                   {f.file_name.length > 20 ? f.file_name.slice(0, 20) + "…" : f.file_name}
-                  <button onClick={() => toggleFile(id)} className="ml-1 hover:text-destructive">
+                  <button onClick={() => toggleFile(id)} className="ml-1 hover:text-destructive transition-colors">
                     <X className="w-3 h-3" />
                   </button>
                 </span>
@@ -233,47 +341,34 @@ const ChatPage = () => {
           <div ref={bottomRef} />
         </div>
 
-        {/* File picker modal */}
-        <AnimatePresence>
-          {showFilePicker && (
-            <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: 10 }}
-              className="mb-2 max-h-48 overflow-y-auto rounded-xl border border-border bg-card p-3 space-y-1"
-            >
-              <div className="flex items-center justify-between mb-2">
-                <p className="text-xs font-semibold text-muted-foreground">Select documents for context</p>
-                <button onClick={() => setShowFilePicker(false)}><X className="w-4 h-4 text-muted-foreground" /></button>
-              </div>
-              {(files || []).map(f => (
-                <button
-                  key={f.id}
-                  onClick={() => toggleFile(f.id)}
-                  className={cn(
-                    "w-full text-left px-3 py-2 rounded-lg text-sm transition-colors",
-                    selectedFileIds.includes(f.id)
-                      ? "bg-primary/10 text-primary font-medium"
-                      : "hover:bg-secondary text-foreground"
-                  )}
-                >
-                  {f.file_name}
-                </button>
-              ))}
-            </motion.div>
-          )}
-        </AnimatePresence>
+        {/* Folder/File Picker Modal */}
+        <FolderPickerModal
+          isOpen={showFolderPicker}
+          onClose={() => setShowFolderPicker(false)}
+          initialSelectedFileIds={selectedFileIds}
+          initialSelectedFolderPaths={selectedFolderPaths}
+          initialSelectedUserFolderIds={selectedUserFolderIds}
+          onSelect={(fileIds, folderPaths, userFolderIds) => {
+            setSelectedFileIds(fileIds);
+            setSelectedFolderPaths(folderPaths);
+            setSelectedUserFolderIds(userFolderIds || []);
+          }}
+        />
 
         {/* Input */}
         <div className="flex items-center gap-2 pt-2 border-t border-border">
           <Button
             variant="outline"
             size="sm"
-            onClick={() => setShowFilePicker(!showFilePicker)}
-            className="shrink-0 rounded-xl text-xs"
+            onClick={() => setShowFolderPicker(true)}
+            className="shrink-0 rounded-xl text-xs gap-1.5 h-9"
           >
-            <FileText className="w-3.5 h-3.5 mr-1" />
-            {selectedFileIds.length > 0 ? `${selectedFileIds.length} files` : "All docs"}
+            <div className="bg-primary/10 p-1 rounded-md">
+              <Plus className="w-3 h-3 text-primary" />
+            </div>
+            {selectedFileIds.length + selectedFolderPaths.length > 0
+              ? `${selectedFileIds.length + selectedFolderPaths.length} selected`
+              : "Add Context"}
           </Button>
           <input
             value={input}

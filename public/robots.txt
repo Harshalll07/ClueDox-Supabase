@@ -1,0 +1,40 @@
+User-agent: Googlebot
+Allow: /
+Crawl-delay: 1
+
+User-agent: Bingbot
+Allow: /
+Crawl-delay: 2
+
+User-agent: Twitterbot
+Allow: /
+
+User-agent: facebookexternalhit
+Allow: /
+
+User-agent: *
+Allow: /
+Allow: /login
+Allow: /pricing
+Allow: /privacy
+Allow: /terms
+
+Disallow: /dashboard
+Disallow: /upload
+Disallow: /files
+Disallow: /search
+Disallow: /chat
+Disallow: /compare
+Disallow: /smart-folders
+Disallow: /reminders
+Disallow: /settings
+Disallow: /whatsapp
+Disallow: /onboarding
+Disallow: /admin
+Disallow: /analytics
+Disallow: /teams
+Disallow: /google-drive
+Disallow: /reset-password
+Disallow: /shared/
+
+Sitemap: https://mind-file.lovable.app/sitemap.xml

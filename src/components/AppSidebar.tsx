@@ -2,12 +2,13 @@ import { NavLink as RouterNavLink, useLocation, useNavigate } from "react-router
 import {
   Plus, X, ChevronDown, LayoutDashboard, Upload, FolderOpen,
   Search, Bell, LogOut, Moon, Sun, MessageCircle, FolderTree,
-  ArrowLeftRight, Settings, Smartphone, BarChart3, Users, HardDrive
+  ArrowLeftRight, Settings, Smartphone, BarChart3, Users, HardDrive, Folder, Globe
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useTheme } from "@/hooks/useTheme";
+import { useSharing } from "@/hooks/useSharing";
 
 const navItems = [
   { to: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
@@ -19,7 +20,7 @@ const navItems = [
   { to: "/compare", icon: ArrowLeftRight, label: "Compare" },
   { to: "/reminders", icon: Bell, label: "Reminders" },
   { to: "/analytics", icon: BarChart3, label: "Analytics" },
-  { to: "/teams", icon: Users, label: "Teams" },
+  { to: "/community", icon: Globe, label: "Community" },
   { to: "/google-drive", icon: HardDrive, label: "Google Drive" },
   { to: "/whatsapp", icon: Smartphone, label: "WhatsApp" }
 ];
@@ -28,6 +29,7 @@ const AppSidebar = ({ onClose }: { onClose?: () => void }) => {
   const location = useLocation();
   const navigate = useNavigate();
   const { isDark, toggleTheme } = useTheme();
+  const { sharedWithMe } = useSharing();
 
   const handleSignOut = async () => {
     await supabase.auth.signOut();
@@ -40,7 +42,6 @@ const AppSidebar = ({ onClose }: { onClose?: () => void }) => {
       {/* Header / Logo */}
       <div className="flex items-center justify-between px-6 py-5">
         <div className="flex items-center gap-2">
-          {/* We keep the elegant serif typography for Sortifi as well since it's the design aesthetic */}
           <h1 className="text-2xl font-bold text-[#111]" style={{ fontFamily: "'Playfair Display', serif" }}>Cluedox</h1>
         </div>
         <div className="flex items-center gap-2">
@@ -63,7 +64,7 @@ const AppSidebar = ({ onClose }: { onClose?: () => void }) => {
           <h3 className="px-3 text-[11px] font-semibold text-[#888] uppercase tracking-wider mb-2">Workspace</h3>
           <div className="space-y-0.5">
             {navItems.map((item) => {
-              const isActive = location.pathname === item.to;
+              const isActive = location.pathname === item.to && !location.search.includes("folderId");
               return (
                 <RouterNavLink
                   key={item.to}
@@ -83,6 +84,32 @@ const AppSidebar = ({ onClose }: { onClose?: () => void }) => {
             })}
           </div>
         </div>
+
+        {/* Shared with Me Section */}
+        {sharedWithMe && sharedWithMe.length > 0 && (
+          <div className="pt-4 pb-2">
+            <h3 className="px-3 text-[11px] font-semibold text-[#888] uppercase tracking-wider mb-2">Shared Folders</h3>
+            <div className="space-y-0.5">
+              {sharedWithMe.filter(s => s.resource_type === "folder").map((share) => {
+                const isActive = location.search.includes(share.resource_id);
+                return (
+                  <RouterNavLink
+                    key={share.id}
+                    to={`/files?folderId=${share.resource_id}`}
+                    onClick={onClose}
+                    className={cn(
+                      "flex items-center gap-3 px-3 py-[7px] rounded-lg text-[13px] font-medium transition-colors group",
+                      isActive ? "bg-[#EFEFEF] text-[#111]" : "text-[#555] hover:bg-[#F3F3F3]"
+                    )}
+                  >
+                    <Folder className={cn("shrink-0 w-4 h-4", isActive ? "text-[#111]" : "text-[#6B7A6F]")} strokeWidth={isActive ? 2.5 : 2} />
+                    <span className="truncate">{share.resource_name || "Shared Folder"}</span>
+                  </RouterNavLink>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
       </nav>
 

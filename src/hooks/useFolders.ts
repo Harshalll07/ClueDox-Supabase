@@ -9,13 +9,45 @@ export interface UserFolder {
 }
 
 async function fetchFolders(): Promise<UserFolder[]> {
-  const { data: folders, error } = await supabase
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return [];
+
+  // Get folders owned by user
+  const { data: ownedFolders, error: ownedError } = await supabase
     .from("user_folders")
     .select("id, name")
-    .order("created_at", { ascending: true });
+    .eq("user_id", user.id);
 
-  if (error) throw error;
-  if (!folders || folders.length === 0) return [];
+  if (ownedError) throw ownedError;
+
+  // Get folders shared with user
+  const { data: sharedShares, error: sharedError } = await supabase
+    .from("resource_shares" as any)
+    .select("resource_id")
+    .eq("shared_with_user_id", user.id)
+    .eq("resource_type", "folder");
+
+  if (sharedError) throw sharedError;
+
+  const sharedIds = (sharedShares || []).map(s => (s as any).resource_id);
+  
+  let folders = ownedFolders || [];
+  
+  if (sharedIds.length > 0) {
+    const { data: sharedFolders, error: sharedFoldersError } = await supabase
+      .from("user_folders")
+      .select("id, name")
+      .in("id", sharedIds);
+    
+    if (!sharedFoldersError && sharedFolders) {
+      // Avoid duplicates
+      const ownedIds = new Set(folders.map(f => f.id));
+      const filteredShared = sharedFolders.filter(sf => !ownedIds.has(sf.id));
+      folders = [...folders, ...filteredShared];
+    }
+  }
+
+  if (folders.length === 0) return [];
 
   const folderIds = folders.map((f) => f.id);
   const { data: folderFiles } = await supabase

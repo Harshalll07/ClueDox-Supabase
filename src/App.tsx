@@ -24,7 +24,7 @@ import OnboardingPage from "./pages/OnboardingPage";
 import AdminPage from "./pages/AdminPage";
 import ResetPasswordPage from "./pages/ResetPasswordPage";
 import AnalyticsPage from "./pages/AnalyticsPage";
-import TeamsPage from "./pages/TeamsPage";
+import CommunityPage from "./pages/CommunityPage";
 import GoogleDrivePage from "./pages/GoogleDrivePage";
 import PrivacyPolicyPage from "./pages/PrivacyPolicyPage";
 import TermsPage from "./pages/TermsPage";
@@ -42,7 +42,7 @@ const App = () => (
         <TooltipProvider>
           <Toaster />
           <Sonner />
-          <BrowserRouter>
+          <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
             <Routes>
               <Route path="/" element={<Index />} />
               <Route path="/old-home" element={<LandingPage />} />
@@ -66,7 +66,7 @@ const App = () => (
               <Route path="/onboarding" element={<AuthGuard><OnboardingPage /></AuthGuard>} />
               <Route path="/admin" element={<AuthGuard><AdminPage /></AuthGuard>} />
               <Route path="/analytics" element={<AuthGuard><AnalyticsPage /></AuthGuard>} />
-              <Route path="/teams" element={<AuthGuard><TeamsPage /></AuthGuard>} />
+              <Route path="/community" element={<AuthGuard><CommunityPage /></AuthGuard>} />
               <Route path="/google-drive" element={<AuthGuard><GoogleDrivePage /></AuthGuard>} />
               <Route path="/shared/:token" element={<SharedFilePage />} />
               <Route path="*" element={<NotFound />} />

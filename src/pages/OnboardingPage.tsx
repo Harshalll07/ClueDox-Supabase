@@ -28,7 +28,7 @@ const useCases = [
   "Store & organize business documents",
   "Quick document retrieval for clients",
   "Tax filing & compliance",
-  "Team document collaboration",
+  "Community document collaboration",
   "Personal document management",
   "Invoice & billing management",
   "Legal case file management",
@@ -52,7 +52,7 @@ const storageMethods = [
   "Mix of physical & digital",
 ];
 
-const teamSizes = ["Just me", "2-5", "6-15", "16-50", "50+"];
+const communitySizes = ["Just me", "2-5", "6-15", "16-50", "50+"];
 
 const designations = [
   "Founder / Owner",
@@ -375,11 +375,11 @@ const OnboardingPage = () => {
                     </Select>
                   </div>
                   <div>
-                    <Label className="text-xs font-medium mb-1.5 block">Team Size</Label>
+                    <Label className="text-xs font-medium mb-1.5 block">Community Size</Label>
                     <Select value={form.team_size} onValueChange={(v) => update("team_size", v)}>
                       <SelectTrigger><SelectValue placeholder="How many people?" /></SelectTrigger>
                       <SelectContent>
-                        {teamSizes.map((t) => (
+                        {communitySizes.map((t) => (
                           <SelectItem key={t} value={t}>{t}</SelectItem>
                         ))}
                       </SelectContent>

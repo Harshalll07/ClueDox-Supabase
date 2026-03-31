@@ -11,21 +11,21 @@ const AppLayout = ({ children }: { children: ReactNode }) => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   return (
-    <div className="flex h-screen w-full bg-[#0A1610] p-2 md:p-4 overflow-hidden">
-      {/* The floating white app window */}
-      <div className="flex-1 flex overflow-hidden bg-[#FCFCFB] rounded-2xl shadow-2xl border border-white/10 relative">
+    <div className="flex h-screen w-full bg-white dark:bg-slate-900 overflow-hidden">
+      {/* The app window */}
+      <div className="flex-1 flex overflow-hidden bg-white dark:bg-slate-900 shadow-sm relative">
 
         {/* Mobile overlay */}
         {isMobile && sidebarOpen && (
           <div
-            className="fixed inset-0 bg-black/40 backdrop-blur-sm z-30 rounded-2xl"
+            className="fixed inset-0 bg-transparent z-30"
             onClick={() => setSidebarOpen(false)}
           />
         )}
 
         {/* Sidebar - hidden on mobile */}
         {!isMobile && (
-          <div className="w-64 shrink-0 h-full border-r border-[#EFEFEF]">
+          <div className="w-64 shrink-0 h-full">
             <AppSidebar onClose={() => setSidebarOpen(false)} />
           </div>
         )}
@@ -33,7 +33,7 @@ const AppLayout = ({ children }: { children: ReactNode }) => {
         {/* Mobile sidebar drawer */}
         {isMobile && (
           <div
-            className={`absolute inset-y-0 left-0 z-40 w-64 transform transition-transform duration-300 ${sidebarOpen ? "translate-x-0" : "-translate-x-full"} border-r border-[#EFEFEF] bg-[#FCFCFB]`}
+            className={`absolute inset-y-0 left-0 z-40 w-64 transform transition-transform duration-300 ${sidebarOpen ? "translate-x-0" : "-translate-x-full"} bg-[#FCFCFB]`}
           >
             <AppSidebar onClose={() => setSidebarOpen(false)} />
           </div>
@@ -43,10 +43,10 @@ const AppLayout = ({ children }: { children: ReactNode }) => {
         <main className="flex-1 h-full overflow-y-auto min-w-0 bg-[#FCFCFB] relative">
           {/* Mobile Header */}
           {isMobile && !sidebarOpen && (
-            <div className="sticky top-0 z-20 flex items-center justify-between p-4 bg-[#FCFCFB]/80 backdrop-blur-md border-b border-[#EFEFEF]">
+            <div className="sticky top-0 z-20 flex items-center justify-between p-4 bg-white dark:bg-slate-900">
               <button
                 onClick={() => setSidebarOpen(true)}
-                className="p-2.5 rounded-xl bg-white border border-[#EFEFEF] shadow-sm hover:bg-zinc-50 transition-colors active:scale-95"
+                className="p-2.5 rounded-xl bg-white shadow-sm hover:bg-zinc-50 transition-colors active:scale-95"
                 aria-label="Open menu"
               >
                 <Menu className="w-5 h-5 text-zinc-700" />

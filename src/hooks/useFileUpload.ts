@@ -178,8 +178,19 @@ export function useFileUpload() {
   }, [queryClient, checkStorageQuota]);
 
   const handleFiles = useCallback((fileList: FileList) => {
+    const generateUUID = () => {
+      try {
+        return crypto.randomUUID();
+      } catch (e) {
+        return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+          var r = Math.random() * 16 | 0, v = c === 'x' ? r : (r & 0x3 | 0x8);
+          return v.toString(16);
+        });
+      }
+    };
+
     const newFiles: UploadingFile[] = Array.from(fileList).map((file) => ({
-      id: crypto.randomUUID(),
+      id: generateUUID(),
       file,
       progress: 0,
       status: file.size > MAX_SIZE ? "error" as const : "uploading" as const,

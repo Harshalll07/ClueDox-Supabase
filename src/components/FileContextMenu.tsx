@@ -25,6 +25,7 @@ export interface ContextMenuActions {
   onAnalyze?: () => void;
   onRename?: () => void;
   onDelete?: () => void;
+  onMove?: () => void;
   onCompare?: () => void;
   onAddToFolder?: (folderId: string) => void;
   onCreateFolder?: () => void;
@@ -135,6 +136,11 @@ export const FileContextMenu = ({
             <ContextMenuItem onClick={actions.onRename} className="gap-3 rounded-lg cursor-pointer focus:bg-primary/10 transition-colors py-2 px-3">
               <Pencil className="w-4 h-4" />
               <span className="text-sm font-medium">Rename</span>
+            </ContextMenuItem>
+
+            <ContextMenuItem onClick={actions.onMove} className="gap-3 rounded-lg cursor-pointer focus:bg-primary/10 transition-colors py-2 px-3">
+              <RefreshCw className="w-4 h-4" />
+              <span className="text-sm font-medium">Move...</span>
             </ContextMenuItem>
 
             <ContextMenuSeparator className="bg-border/40 my-1" />

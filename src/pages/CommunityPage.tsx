@@ -8,7 +8,8 @@ import {
 import AppLayout from "@/components/AppLayout";
 import { 
   useTeams, useTeamMembers, useTeamFolders, useCreateTeam, 
-  useCreateTeamFolder, useInviteMember, useTeamFolderFiles 
+  useCreateTeamFolder, useInviteMember, useTeamFolderFiles,
+  useRemoveMember, useUpdateMemberRole 
 } from "@/hooks/useTeams";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -21,12 +22,55 @@ import { supabase } from "@/integrations/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { FileContextMenu } from "@/components/FileContextMenu";
+import { MemberContextMenu } from "@/components/MemberContextMenu";
 import { viewFile, downloadFile } from "@/lib/fileUrl";
 
-const CommunityFileItem = ({ file, folderId, teamId, isEditor }: { file: any; folderId: string; teamId: string; isEditor: boolean }) => {
+// Robust UUID fallback for non-secure contexts
+function generateUUID() {
+  if (typeof crypto !== "undefined" && crypto.randomUUID) {
+    return crypto.randomUUID();
+  }
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+    const r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
+    return v.toString(16);
+  });
+}
+
+const CommunityFileItem = ({ file, folderId, teamId, isEditor, onShare }: { file: any; folderId: string; teamId: string; isEditor: boolean; onShare: (resource: { id: string, name: string, type: "file" | "folder" }) => void }) => {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const isReady = file.file_status === "ready";
   const isAnalysing = file.file_status === "analysing";
+
+  const handleDelete = async () => {
+    if (!isEditor) return;
+    if (!confirm(`Are you sure you want to delete "${file.file_name}"?`)) return;
+    try {
+      const { error: linkError } = await supabase.from("team_folder_files" as any).delete().eq("file_id", file.id).eq("folder_id", folderId);
+      if (linkError) throw linkError;
+
+      // Also delete the file record if it's not shared anywhere else? 
+      // For now, just remove from this community folder
+      toast.success("File removed from community folder");
+      queryClient.invalidateQueries({ queryKey: ["team-folder-files", folderId] });
+    } catch (e: any) {
+      toast.error(e.message || "Failed to delete file");
+    }
+  };
+
+  const handleRename = async () => {
+    if (!isEditor) return;
+    const newName = prompt("Enter new name:", file.file_name);
+    if (!newName || newName === file.file_name) return;
+    try {
+      const { error } = await supabase.from("files").update({ file_name: newName }).eq("id", file.id);
+      if (error) throw error;
+      toast.success("File renamed");
+      queryClient.invalidateQueries({ queryKey: ["team-folder-files", folderId] });
+    } catch (e: any) {
+      toast.error(e.message || "Failed to rename file");
+    }
+  };
 
   return (
     <FileContextMenu
@@ -36,16 +80,28 @@ const CommunityFileItem = ({ file, folderId, teamId, isEditor }: { file: any; fo
         onOpen: () => viewFile(file.file_url),
         onDownload: () => downloadFile(file.file_url, file.file_name),
         onChat: () => navigate(`/chat?fileId=${file.id}`),
+        onShare: () => onShare({ id: file.id, name: file.file_name, type: "file" }),
+        onDelete: handleDelete,
+        onRename: handleRename,
         onAnalyze: async () => {
-          toast.info("Starting AI analysis...");
-          await supabase.functions.invoke("analyze-file", {
-            body: { fileId: file.id, fileName: file.file_name, fileType: file.file_type }
-          });
-          toast.success("Analysis started!");
+          try {
+            toast.info("Starting AI analysis...");
+            const { error: invokeError } = await supabase.functions.invoke("analyze-file", {
+              body: { fileId: file.id, fileName: file.file_name, fileType: file.file_type }
+            });
+            if (invokeError) throw invokeError;
+            toast.success("Analysis started!");
+          } catch (err: any) {
+            console.error("AI Analysis failed", err);
+            toast.error(err.message || "Failed to start AI analysis");
+          }
         },
       }}
     >
-      <div className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-primary/5 group transition-all cursor-pointer">
+      <div 
+        onDoubleClick={(e) => { e.stopPropagation(); viewFile(file.file_url); }}
+        className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-primary/5 group transition-all cursor-pointer"
+      >
         <div className="relative">
           <FileText className={cn("w-4 h-4", isReady ? "text-emerald-500" : "text-muted-foreground/50")} />
           {isAnalysing && (
@@ -69,12 +125,40 @@ const CommunityFileItem = ({ file, folderId, teamId, isEditor }: { file: any; fo
 };
 
 const CommunityFolderItem = ({ 
-  folder, teamId, isEditor, isExpanded, onToggle, onUpload 
+  folder, teamId, isEditor, isExpanded, onToggle, onUpload, onShare, onMove 
 }: { 
-  folder: any; teamId: string; isEditor: boolean; isExpanded: boolean; onToggle: () => void; onUpload: (fid: string) => void 
+  folder: any; teamId: string; isEditor: boolean; isExpanded: boolean; onToggle: () => void; onUpload: (fid: string) => void; onShare: (resource: { id: string, name: string, type: "file" | "folder" }) => void; onMove: () => void 
 }) => {
   const { data: files, isLoading } = useTeamFolderFiles(isExpanded ? folder.id : null);
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
+
+  const handleDelete = async () => {
+    if (!isEditor) return;
+    if (!confirm(`Are you sure you want to delete folder "${folder.name}"? All links to files within this folder will be removed.`)) return;
+    try {
+      const { error } = await supabase.from("team_folders").delete().eq("id", folder.id);
+      if (error) throw error;
+      toast.success("Folder deleted");
+      queryClient.invalidateQueries({ queryKey: ["team-folders", teamId] });
+    } catch (e: any) {
+      toast.error(e.message || "Failed to delete folder");
+    }
+  };
+
+  const handleRename = async () => {
+    if (!isEditor) return;
+    const newName = prompt("Enter new folder name:", folder.name);
+    if (!newName || newName === folder.name) return;
+    try {
+      const { error } = await supabase.from("team_folders").update({ name: newName }).eq("id", folder.id);
+      if (error) throw error;
+      toast.success("Folder renamed");
+      queryClient.invalidateQueries({ queryKey: ["team-folders", teamId] });
+    } catch (e: any) {
+      toast.error(e.message || "Failed to rename folder");
+    }
+  };
 
   return (
     <FileContextMenu
@@ -83,6 +167,10 @@ const CommunityFolderItem = ({
       actions={{
         onOpen: onToggle,
         onChat: () => navigate(`/chat?userFolderId=${folder.id}`),
+        onShare: () => onShare({ id: folder.id, name: folder.name, type: "folder" }),
+        onDelete: handleDelete,
+        onRename: handleRename,
+        onMove: onMove,
       }}
     >
       <div className="space-y-1">
@@ -125,7 +213,14 @@ const CommunityFolderItem = ({
                 <div className="flex items-center justify-center py-4"><Loader2 className="w-4 h-4 animate-spin text-primary/40" /></div>
               ) : files && files.length > 0 ? (
                 files.map((file: any) => (
-                  <CommunityFileItem key={file.id} file={file} folderId={folder.id} teamId={teamId} isEditor={isEditor} />
+                  <CommunityFileItem 
+                    key={file.id} 
+                    file={file} 
+                    folderId={folder.id} 
+                    teamId={teamId} 
+                    isEditor={isEditor} 
+                    onShare={(resource) => onShare(resource)}
+                  />
                 ))
               ) : (
                 <p className="text-[10px] text-muted-foreground py-2 italic font-medium">No files in this folder yet.</p>
@@ -143,6 +238,8 @@ const CommunityPage = () => {
   const createTeam = useCreateTeam();
   const createFolder = useCreateTeamFolder();
   const inviteMember = useInviteMember();
+  const removeMember = useRemoveMember();
+  const updateMemberRole = useUpdateMemberRole();
   const [selectedTeam, setSelectedTeam] = useState<string | null>(null);
   const [expandedFolder, setExpandedFolder] = useState<string | null>(null);
   const [newTeamName, setNewTeamName] = useState("");
@@ -151,14 +248,21 @@ const CommunityPage = () => {
   const [showInvite, setShowInvite] = useState(false);
   const [inviteEmail, setInviteEmail] = useState("");
   const [isInviting, setIsInviting] = useState(false);
-  const [shareFolder, setShareFolder] = useState<{ id: string; name: string } | null>(null);
+  const [sharingResource, setSharingResource] = useState<{ id: string; name: string; type: "file" | "folder" } | null>(null);
   const [uploading, setUploading] = useState<string | null>(null); // folderId
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
   const navigate = useNavigate();
 
   const { data: members } = useTeamMembers(selectedTeam);
   const { data: folders } = useTeamFolders(selectedTeam);
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (user) setCurrentUserId(user.id);
+    });
+  }, []);
 
   useEffect(() => {
     if (teams && teams.length > 0 && !selectedTeam) {
@@ -200,7 +304,7 @@ const CommunityPage = () => {
 
       // Unique file path
       const fileExt = file.name.split(".").pop();
-      const filePath = `${user.id}/${crypto.randomUUID()}.${fileExt}`;
+      const filePath = `${user.id}/${generateUUID()}.${fileExt}`;
 
       // 1. Upload to storage
       const { error: uploadError } = await supabase.storage
@@ -424,22 +528,59 @@ const CommunityPage = () => {
                       <div className="bg-card/40 rounded-2xl border border-border/20 overflow-hidden divide-y divide-border/10">
                         {members?.map((m) => {
                           const roleIcons: Record<string, any> = { owner: Crown, admin: Shield, member: User, viewer: User };
-                          const roleColors: Record<string, string> = { owner: "text-warning", admin: "text-primary", member: "text-muted-foreground", viewer: "text-muted-foreground" };
+                          const roleColors: Record<string, string> = { owner: "text-warning", admin: "text-primary", member: "text-primary", viewer: "text-muted-foreground" };
                           const RoleIcon = roleIcons[m.role] || User;
+                          
+                          const currentUserMember = members?.find(mem => mem.user_id === currentUserId);
+                          const isOwner = currentUserMember?.role === 'owner';
+                          const isAdmin = currentUserMember?.role === 'admin';
+                          const isSelf = m.user_id === currentUserId;
+                          
+                          // RBAC: Only owner, admin, or self can manage a member
+                          const canManageThisMember = isOwner || isAdmin || isSelf;
+
                           return (
-                            <div key={m.id} className="flex items-center gap-4 p-4 hover:bg-secondary/20 transition-colors">
-                              <div className="w-10 h-10 rounded-full bg-secondary/80 flex items-center justify-center border-2 border-background shadow-sm">
-                                <RoleIcon className={cn("w-4 h-4", roleColors[m.role])} />
+                            <MemberContextMenu
+                              key={m.id}
+                              member={m}
+                              canManage={canManageThisMember}
+                              isOwner={isOwner}
+                              isSelf={isSelf}
+                              actions={{
+                                onChangeRole: async (role) => {
+                                  try {
+                                    await updateMemberRole.mutateAsync({ teamId: m.team_id, userId: m.user_id, role });
+                                    toast.success(`Role updated to ${role}`);
+                                  } catch (e: any) {
+                                    toast.error(e.message || "Failed to update role");
+                                  }
+                                },
+                                onRemove: async () => {
+                                  if (!confirm("Are you sure you want to remove this member?")) return;
+                                  try {
+                                    await removeMember.mutateAsync({ teamId: m.team_id, userId: m.user_id });
+                                    toast.success("Member removed");
+                                  } catch (e: any) {
+                                    toast.error(e.message || "Failed to remove member");
+                                  }
+                                },
+                                onInvite: () => setShowInvite(true),
+                              }}
+                            >
+                              <div className="flex items-center gap-4 p-4 hover:bg-secondary/20 transition-colors cursor-context-menu">
+                                <div className="w-10 h-10 rounded-full bg-secondary/80 flex items-center justify-center border-2 border-background shadow-sm">
+                                  <RoleIcon className={cn("w-4 h-4", roleColors[m.role])} />
+                                </div>
+                                <div className="min-w-0">
+                                  <p className="text-sm font-bold truncate">User_{m.user_id.slice(0, 5)}</p>
+                                  <span className={cn("text-[10px] font-bold uppercase tracking-tight px-2 py-0.5 rounded-md", 
+                                    m.role === 'owner' ? "bg-warning/10 text-warning" : "bg-primary/10 text-primary"
+                                  )}>
+                                    {m.role}
+                                  </span>
+                                </div>
                               </div>
-                              <div className="min-w-0">
-                                <p className="text-sm font-bold truncate">User_{m.user_id.slice(0, 5)}</p>
-                                <span className={cn("text-[10px] font-bold uppercase tracking-tight px-2 py-0.5 rounded-md", 
-                                  m.role === 'owner' ? "bg-warning/10 text-warning" : "bg-primary/10 text-primary"
-                                )}>
-                                  {m.role}
-                                </span>
-                              </div>
-                            </div>
+                            </MemberContextMenu>
                           );
                         })}
                       </div>
@@ -474,9 +615,11 @@ const CommunityPage = () => {
                       {folders && folders.length > 0 ? (
                         <div className="space-y-3">
                           {folders.map((f) => {
-                            const currentUserId = (supabase.auth.getUser() as any)?.data?.user?.id;
-                            const userMember = members?.find(m => m.user_id === currentUserId);
-                            const isEditor = activeCommunity.owner_id === currentUserId || (userMember && ['owner', 'admin', 'member'].includes(userMember.role)) || false;
+                            const currentUserMember = members?.find(m => m.user_id === currentUserId);
+                            const userRole = currentUserMember?.role || 'viewer';
+                            
+                            // Unify RBAC: Admin, Owner, and Member (as Editor) have management access
+                            const isEditor = ['owner', 'admin', 'member'].includes(userRole) || activeCommunity.owner_id === currentUserId;
 
                             return (
                               <div key={f.id}>
@@ -486,6 +629,8 @@ const CommunityPage = () => {
                                   isEditor={isEditor}
                                   isExpanded={expandedFolder === f.id}
                                   onToggle={() => setExpandedFolder(expandedFolder === f.id ? null : f.id)}
+                                  onShare={(resource) => setSharingResource(resource)}
+                                  onMove={() => toast.info("Move functionality coming soon: Select destination team.")}
                                   onUpload={(fid) => {
                                     if (fileInputRef.current) {
                                       fileInputRef.current.setAttribute('data-folder-id', fid);
@@ -532,13 +677,13 @@ const CommunityPage = () => {
         className="hidden"
       />
 
-      {shareFolder && (
+      {sharingResource && (
         <ShareDialog
-          open={!!shareFolder}
-          onOpenChange={(open) => !open && setShareFolder(null)}
-          resourceId={shareFolder.id}
-          resourceName={shareFolder.name}
-          resourceType="folder"
+          open={!!sharingResource}
+          onOpenChange={(open) => !open && setSharingResource(null)}
+          resourceId={sharingResource.id}
+          resourceName={sharingResource.name}
+          resourceType={sharingResource.type}
         />
       )}
     </AppLayout>

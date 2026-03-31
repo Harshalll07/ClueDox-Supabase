@@ -145,3 +145,33 @@ export function useInviteMember() {
   });
 }
 
+export function useRemoveMember() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ teamId, userId }: { teamId: string; userId: string }) => {
+      const { error } = await supabase
+        .from("team_members")
+        .delete()
+        .eq("team_id", teamId)
+        .eq("user_id", userId);
+      if (error) throw error;
+    },
+    onSuccess: (_, vars) => qc.invalidateQueries({ queryKey: ["team-members", vars.teamId] }),
+  });
+}
+
+export function useUpdateMemberRole() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ teamId, userId, role }: { teamId: string; userId: string; role: string }) => {
+      const { error } = await supabase
+        .from("team_members")
+        .update({ role })
+        .eq("team_id", teamId)
+        .eq("user_id", userId);
+      if (error) throw error;
+    },
+    onSuccess: (_, vars) => qc.invalidateQueries({ queryKey: ["team-members", vars.teamId] }),
+  });
+}
+

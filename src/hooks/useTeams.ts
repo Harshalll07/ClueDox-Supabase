@@ -105,13 +105,43 @@ export function useCreateTeamFolder() {
   });
 }
 
+export function useTeamFolderFiles(folderId: string | null) {
+  return useQuery({
+    queryKey: ["team-folder-files", folderId],
+    enabled: !!folderId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("team_folder_files" as any)
+        .select(`
+          file:file_id (*)
+        `)
+        .eq("folder_id", folderId!);
+      if (error) throw error;
+      return (data || []).map((d: any) => d.file);
+    },
+  });
+}
+
 export function useInviteMember() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async ({ teamId, userId, role = "member" }: { teamId: string; userId: string; role?: string }) => {
+      // Check for existing membership to avoid 409
+      const { data: existing } = await supabase
+        .from("team_members")
+        .select("id")
+        .eq("team_id", teamId)
+        .eq("user_id", userId)
+        .maybeSingle();
+
+      if (existing) {
+        throw new Error("User is already a member of this community");
+      }
+
       const { error } = await supabase.from("team_members").insert({ team_id: teamId, user_id: userId, role });
       if (error) throw error;
     },
     onSuccess: (_, vars) => qc.invalidateQueries({ queryKey: ["team-members", vars.teamId] }),
   });
 }
+

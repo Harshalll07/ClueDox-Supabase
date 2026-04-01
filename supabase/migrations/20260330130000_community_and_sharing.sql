@@ -82,13 +82,20 @@ ALTER TABLE public.team_folder_files ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.resource_shares ENABLE ROW LEVEL SECURITY;
 
 -- Teams
-CREATE POLICY "Users can view teams they own or belong to" ON public.teams FOR SELECT USING (true);
+CREATE POLICY "Users can view teams they own or belong to" ON public.teams FOR SELECT USING (
+    owner_id = auth.uid() OR 
+    EXISTS (SELECT 1 FROM public.team_members WHERE team_id = teams.id AND user_id = auth.uid())
+);
 CREATE POLICY "Authenticated users can create teams" ON public.teams FOR INSERT WITH CHECK (auth.role() = 'authenticated');
 CREATE POLICY "Team owners can update teams" ON public.teams FOR UPDATE USING (owner_id = auth.uid());
 CREATE POLICY "Team owners can delete teams" ON public.teams FOR DELETE USING (owner_id = auth.uid());
 
 -- Team Members
-CREATE POLICY "Users can view members of their teams" ON public.team_members FOR SELECT USING (true);
+CREATE POLICY "Users can view members of their teams" ON public.team_members FOR SELECT USING (
+    user_id = auth.uid() OR
+    EXISTS (SELECT 1 FROM public.team_members tm WHERE tm.team_id = team_members.team_id AND tm.user_id = auth.uid()) OR
+    EXISTS (SELECT 1 FROM public.teams t WHERE t.id = team_members.team_id AND t.owner_id = auth.uid())
+);
 CREATE POLICY "Authenticated users can insert team members" ON public.team_members FOR INSERT WITH CHECK (auth.role() = 'authenticated');
 CREATE POLICY "Team owners and admins can update members" ON public.team_members FOR UPDATE USING (
     EXISTS (SELECT 1 FROM public.teams t WHERE t.id = team_members.team_id AND t.owner_id = auth.uid()) OR
@@ -101,40 +108,63 @@ CREATE POLICY "Team owners and admins can delete members, or themselves" ON publ
 );
 
 -- Team Folders
-CREATE POLICY "Users can view folders of their teams" ON public.team_folders FOR SELECT USING (true);
-CREATE POLICY "Users can insert folders to their teams" ON public.team_folders FOR INSERT WITH CHECK (
+CREATE POLICY "Users can view folders of their teams" ON public.team_folders FOR SELECT USING (
     EXISTS (SELECT 1 FROM public.team_members WHERE team_id = team_folders.team_id AND user_id = auth.uid()) OR
+    EXISTS (SELECT 1 FROM public.teams WHERE id = team_folders.team_id AND owner_id = auth.uid())
+);
+CREATE POLICY "Users can insert folders to their teams" ON public.team_folders FOR INSERT WITH CHECK (
+    EXISTS (SELECT 1 FROM public.team_members WHERE team_id = team_folders.team_id AND user_id = auth.uid() AND role IN ('owner', 'admin', 'member')) OR
     EXISTS (SELECT 1 FROM public.teams WHERE id = team_folders.team_id AND owner_id = auth.uid())
 );
 CREATE POLICY "Users can update team folders" ON public.team_folders FOR UPDATE USING (
-    EXISTS (SELECT 1 FROM public.team_members WHERE team_id = team_folders.team_id AND user_id = auth.uid()) OR
+    EXISTS (SELECT 1 FROM public.team_members WHERE team_id = team_folders.team_id AND user_id = auth.uid() AND role IN ('owner', 'admin', 'member')) OR
     EXISTS (SELECT 1 FROM public.teams WHERE id = team_folders.team_id AND owner_id = auth.uid())
 );
 CREATE POLICY "Users can delete team folders" ON public.team_folders FOR DELETE USING (
-    EXISTS (SELECT 1 FROM public.team_members WHERE team_id = team_folders.team_id AND user_id = auth.uid()) OR
+    EXISTS (SELECT 1 FROM public.team_members WHERE team_id = team_folders.team_id AND user_id = auth.uid() AND role IN ('owner', 'admin')) OR
     EXISTS (SELECT 1 FROM public.teams WHERE id = team_folders.team_id AND owner_id = auth.uid())
 );
 
 -- Team Folder Files
-CREATE POLICY "Users can view files in their team folders" ON public.team_folder_files FOR SELECT USING (true);
-CREATE POLICY "Users can add files to their team folders" ON public.team_folder_files FOR INSERT WITH CHECK (
+CREATE POLICY "Users can view files in their team folders" ON public.team_folder_files FOR SELECT USING (
     EXISTS (SELECT 1 FROM public.team_folders tf JOIN public.team_members tm ON tf.team_id = tm.team_id WHERE tf.id = team_folder_files.folder_id AND tm.user_id = auth.uid()) OR
     EXISTS (SELECT 1 FROM public.team_folders tf JOIN public.teams t ON tf.team_id = t.id WHERE tf.id = team_folder_files.folder_id AND t.owner_id = auth.uid())
 );
+CREATE POLICY "Users can add files to their team folders" ON public.team_folder_files FOR INSERT WITH CHECK (
+    EXISTS (SELECT 1 FROM public.team_folders tf JOIN public.team_members tm ON tf.team_id = tm.team_id WHERE tf.id = team_folder_files.folder_id AND tm.user_id = auth.uid() AND tm.role IN ('owner', 'admin', 'member')) OR
+    EXISTS (SELECT 1 FROM public.team_folders tf JOIN public.teams t ON tf.team_id = t.id WHERE tf.id = team_folder_files.folder_id AND t.owner_id = auth.uid())
+);
 CREATE POLICY "Users can delete files from team folders" ON public.team_folder_files FOR DELETE USING (
-    EXISTS (SELECT 1 FROM public.team_folders tf JOIN public.team_members tm ON tf.team_id = tm.team_id WHERE tf.id = team_folder_files.folder_id AND tm.user_id = auth.uid()) OR
+    EXISTS (SELECT 1 FROM public.team_folders tf JOIN public.team_members tm ON tf.team_id = tm.team_id WHERE tf.id = team_folder_files.folder_id AND tm.user_id = auth.uid() AND tm.role IN ('owner', 'admin')) OR
     EXISTS (SELECT 1 FROM public.team_folders tf JOIN public.teams t ON tf.team_id = t.id WHERE tf.id = team_folder_files.folder_id AND t.owner_id = auth.uid())
 );
 
 -- Resource Shares
-CREATE POLICY "Users can view shares they are involved in" ON public.resource_shares FOR SELECT USING (true);
+CREATE POLICY "Users can view shares they are involved in" ON public.resource_shares FOR SELECT USING (
+    sharer_user_id = auth.uid() OR shared_with_user_id = auth.uid()
+);
 CREATE POLICY "Authenticated users can insert share records" ON public.resource_shares FOR INSERT WITH CHECK (auth.role() = 'authenticated');
-CREATE POLICY "Users can update their share, or shares they created" ON public.resource_shares FOR UPDATE USING (sharer_user_id = auth.uid() OR shared_with_user_id = auth.uid());
-CREATE POLICY "Users can delete their share, or shares they created" ON public.resource_shares FOR DELETE USING (sharer_user_id = auth.uid() OR shared_with_user_id = auth.uid());
+CREATE POLICY "Users can update their share, or shares they created" ON public.resource_shares FOR UPDATE USING (sharer_user_id = auth.uid() OR (shared_with_user_id = auth.uid() AND role = 'editor'));
+CREATE POLICY "Users can delete their share, or shares they created" ON public.resource_shares FOR DELETE USING (sharer_user_id = auth.uid());
 
+
+-- Add policy to profiles to allow searching for invitations (only full_name and phone_number)
+DO $$ 
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_policies 
+        WHERE tablename = 'profiles' AND policyname = 'Users can search other profiles'
+    ) THEN
+        CREATE POLICY "Users can search other profiles" 
+        ON public.profiles FOR SELECT 
+        TO authenticated 
+        USING (true);
+    END IF;
+END $$;
 
 -- ==============================================================================
 -- STEP 4: RELOAD SUPABASE CACHE
 -- Forces PostgREST API to recognize the new tables immediately, stopping all 404s.
 -- ==============================================================================
 NOTIFY pgrst, 'reload schema';
+

@@ -1,43 +1,274 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Globe, Plus, FolderPlus, UserPlus, Crown, Shield, User, ChevronRight, Upload, FileText, Loader2, MessageCircle } from "lucide-react";
+import { 
+  Globe, Plus, FolderPlus, UserPlus, Crown, Shield, User, 
+  ChevronRight, Upload, FileText, Loader2, MessageCircle, 
+  Share2, Eye, Download, Sparkles
+} from "lucide-react";
 import AppLayout from "@/components/AppLayout";
-import { useTeams, useTeamMembers, useTeamFolders, useCreateTeam, useCreateTeamFolder, useInviteMember } from "@/hooks/useTeams";
+import { 
+  useTeams, useTeamMembers, useTeamFolders, useCreateTeam, 
+  useCreateTeamFolder, useInviteMember, useTeamFolderFiles,
+  useRemoveMember, useUpdateMemberRole 
+} from "@/hooks/useTeams";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
-import { Share2 } from "lucide-react";
 import { CollaboratorAvatars } from "@/components/CollaboratorAvatars";
 import ShareDialog from "@/components/ShareDialog";
 import { supabase } from "@/integrations/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
+import { FileContextMenu } from "@/components/FileContextMenu";
+import { MemberContextMenu } from "@/components/MemberContextMenu";
+import { viewFile, downloadFile } from "@/lib/fileUrl";
 
-const roleIcons: Record<string, any> = { owner: Crown, admin: Shield, member: User, viewer: User };
-const roleColors: Record<string, string> = { owner: "text-warning", admin: "text-primary", member: "text-muted-foreground", viewer: "text-muted-foreground" };
+// Robust UUID fallback for non-secure contexts
+function generateUUID() {
+  if (typeof crypto !== "undefined" && crypto.randomUUID) {
+    return crypto.randomUUID();
+  }
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+    const r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
+    return v.toString(16);
+  });
+}
+
+const CommunityFileItem = ({ file, folderId, teamId, isEditor, onShare }: { file: any; folderId: string; teamId: string; isEditor: boolean; onShare: (resource: { id: string, name: string, type: "file" | "folder" }) => void }) => {
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const isReady = file.file_status === "ready";
+  const isAnalysing = file.file_status === "analysing";
+
+  const handleDelete = async () => {
+    if (!isEditor) return;
+    if (!confirm(`Are you sure you want to delete "${file.file_name}"?`)) return;
+    try {
+      const { error: linkError } = await supabase.from("team_folder_files" as any).delete().eq("file_id", file.id).eq("folder_id", folderId);
+      if (linkError) throw linkError;
+
+      // Also delete the file record if it's not shared anywhere else? 
+      // For now, just remove from this community folder
+      toast.success("File removed from community folder");
+      queryClient.invalidateQueries({ queryKey: ["team-folder-files", folderId] });
+    } catch (e: any) {
+      toast.error(e.message || "Failed to delete file");
+    }
+  };
+
+  const handleRename = async () => {
+    if (!isEditor) return;
+    const newName = prompt("Enter new name:", file.file_name);
+    if (!newName || newName === file.file_name) return;
+    try {
+      const { error } = await supabase.from("files").update({ file_name: newName }).eq("id", file.id);
+      if (error) throw error;
+      toast.success("File renamed");
+      queryClient.invalidateQueries({ queryKey: ["team-folder-files", folderId] });
+    } catch (e: any) {
+      toast.error(e.message || "Failed to rename file");
+    }
+  };
+
+  return (
+    <FileContextMenu
+      resource={{ id: file.id, name: file.file_name, type: "file" }}
+      isEditor={isEditor}
+      actions={{
+        onOpen: () => viewFile(file.file_url),
+        onDownload: () => downloadFile(file.file_url, file.file_name),
+        onChat: () => navigate(`/chat?fileId=${file.id}`),
+        onShare: () => onShare({ id: file.id, name: file.file_name, type: "file" }),
+        onDelete: handleDelete,
+        onRename: handleRename,
+        onAnalyze: async () => {
+          try {
+            toast.info("Starting AI analysis...");
+            const { error: invokeError } = await supabase.functions.invoke("analyze-file", {
+              body: { fileId: file.id, fileName: file.file_name, fileType: file.file_type }
+            });
+            if (invokeError) throw invokeError;
+            toast.success("Analysis started!");
+          } catch (err: any) {
+            console.error("AI Analysis failed", err);
+            toast.error(err.message || "Failed to start AI analysis");
+          }
+        },
+      }}
+    >
+      <div 
+        onDoubleClick={(e) => { e.stopPropagation(); viewFile(file.file_url); }}
+        className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-primary/5 group transition-all cursor-pointer"
+      >
+        <div className="relative">
+          <FileText className={cn("w-4 h-4", isReady ? "text-emerald-500" : "text-muted-foreground/50")} />
+          {isAnalysing && (
+            <div className="absolute -top-1 -right-1">
+              <Loader2 className="w-2.5 h-2.5 animate-spin text-amber-500" />
+            </div>
+          )}
+        </div>
+        <span className="text-sm font-medium flex-1 truncate">{file.file_name}</span>
+        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+          <Button size="icon" variant="ghost" className="h-7 w-7 rounded-lg" onClick={(e) => { e.stopPropagation(); navigate(`/chat?fileId=${file.id}`); }}>
+            <MessageCircle className="w-3.5 h-3.5" />
+          </Button>
+          <Button size="icon" variant="ghost" className="h-7 w-7 rounded-lg" onClick={(e) => { e.stopPropagation(); viewFile(file.file_url); }}>
+            <Eye className="w-3.5 h-3.5" />
+          </Button>
+        </div>
+      </div>
+    </FileContextMenu>
+  );
+};
+
+const CommunityFolderItem = ({ 
+  folder, teamId, isEditor, isExpanded, onToggle, onUpload, onShare, onMove 
+}: { 
+  folder: any; teamId: string; isEditor: boolean; isExpanded: boolean; onToggle: () => void; onUpload: (fid: string) => void; onShare: (resource: { id: string, name: string, type: "file" | "folder" }) => void; onMove: () => void 
+}) => {
+  const { data: files, isLoading } = useTeamFolderFiles(isExpanded ? folder.id : null);
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
+
+  const handleDelete = async () => {
+    if (!isEditor) return;
+    if (!confirm(`Are you sure you want to delete folder "${folder.name}"? All links to files within this folder will be removed.`)) return;
+    try {
+      const { error } = await supabase.from("team_folders").delete().eq("id", folder.id);
+      if (error) throw error;
+      toast.success("Folder deleted");
+      queryClient.invalidateQueries({ queryKey: ["team-folders", teamId] });
+    } catch (e: any) {
+      toast.error(e.message || "Failed to delete folder");
+    }
+  };
+
+  const handleRename = async () => {
+    if (!isEditor) return;
+    const newName = prompt("Enter new folder name:", folder.name);
+    if (!newName || newName === folder.name) return;
+    try {
+      const { error } = await supabase.from("team_folders").update({ name: newName }).eq("id", folder.id);
+      if (error) throw error;
+      toast.success("Folder renamed");
+      queryClient.invalidateQueries({ queryKey: ["team-folders", teamId] });
+    } catch (e: any) {
+      toast.error(e.message || "Failed to rename folder");
+    }
+  };
+
+  return (
+    <FileContextMenu
+      resource={{ id: folder.id, name: folder.name, type: "folder" }}
+      isEditor={isEditor}
+      actions={{
+        onOpen: onToggle,
+        onChat: () => navigate(`/chat?userFolderId=${folder.id}`),
+        onShare: () => onShare({ id: folder.id, name: folder.name, type: "folder" }),
+        onDelete: handleDelete,
+        onRename: handleRename,
+        onMove: onMove,
+      }}
+    >
+      <div className="space-y-1">
+        <div 
+          onClick={onToggle}
+          className={cn(
+            "flex items-center gap-3 p-3.5 rounded-2xl border transition-all cursor-pointer group",
+            isExpanded ? "bg-primary/5 border-primary/20 shadow-sm" : "bg-card/50 border-border/40 hover:border-primary/30"
+          )}
+        >
+          <div className={cn("p-2 rounded-lg", isExpanded ? "bg-primary/20 text-primary" : "bg-secondary/50 text-muted-foreground group-hover:bg-primary/10 group-hover:text-primary")}>
+            <FolderPlus className="w-5 h-5" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-bold truncate">{folder.name}</p>
+            <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-wider">Shared Directory</p>
+          </div>
+          <div className="flex items-center gap-2">
+             <Button
+              size="sm"
+              variant="ghost"
+              onClick={(e) => { e.stopPropagation(); onUpload(folder.id); }}
+              className="h-8 gap-1.5 text-[10px] font-bold uppercase rounded-lg hover:bg-primary/10 hover:text-primary"
+            >
+              <Upload className="w-3.5 h-3.5" />
+            </Button>
+            <ChevronRight className={cn("w-4 h-4 text-muted-foreground transition-transform duration-300", isExpanded && "rotate-90")} />
+          </div>
+        </div>
+        
+        <AnimatePresence>
+          {isExpanded && (
+            <motion.div
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: "auto", opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              className="overflow-hidden ml-6 pl-4 border-l-2 border-primary/10 mt-1 space-y-1"
+            >
+              {isLoading ? (
+                <div className="flex items-center justify-center py-4"><Loader2 className="w-4 h-4 animate-spin text-primary/40" /></div>
+              ) : files && files.length > 0 ? (
+                files.map((file: any) => (
+                  <CommunityFileItem 
+                    key={file.id} 
+                    file={file} 
+                    folderId={folder.id} 
+                    teamId={teamId} 
+                    isEditor={isEditor} 
+                    onShare={(resource) => onShare(resource)}
+                  />
+                ))
+              ) : (
+                <p className="text-[10px] text-muted-foreground py-2 italic font-medium">No files in this folder yet.</p>
+              )}
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+    </FileContextMenu>
+  );
+};
 
 const CommunityPage = () => {
   const { data: teams, isLoading } = useTeams();
   const createTeam = useCreateTeam();
   const createFolder = useCreateTeamFolder();
   const inviteMember = useInviteMember();
+  const removeMember = useRemoveMember();
+  const updateMemberRole = useUpdateMemberRole();
   const [selectedTeam, setSelectedTeam] = useState<string | null>(null);
+  const [expandedFolder, setExpandedFolder] = useState<string | null>(null);
   const [newTeamName, setNewTeamName] = useState("");
   const [newFolderName, setNewFolderName] = useState("");
   const [showCreate, setShowCreate] = useState(false);
   const [showInvite, setShowInvite] = useState(false);
   const [inviteEmail, setInviteEmail] = useState("");
   const [isInviting, setIsInviting] = useState(false);
-  const [shareFolder, setShareFolder] = useState<{ id: string; name: string } | null>(null);
+  const [sharingResource, setSharingResource] = useState<{ id: string; name: string; type: "file" | "folder" } | null>(null);
   const [uploading, setUploading] = useState<string | null>(null); // folderId
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
   const navigate = useNavigate();
 
   const { data: members } = useTeamMembers(selectedTeam);
   const { data: folders } = useTeamFolders(selectedTeam);
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (user) setCurrentUserId(user.id);
+    });
+  }, []);
+
+  useEffect(() => {
+    if (teams && teams.length > 0 && !selectedTeam) {
+      setSelectedTeam(teams[0].id);
+    }
+  }, [teams]);
 
   const handleCreateCommunity = async () => {
     if (!newTeamName.trim()) return;
@@ -71,15 +302,18 @@ const CommunityPage = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Not authenticated");
 
+      // Unique file path
       const fileExt = file.name.split(".").pop();
-      const filePath = `${user.id}/${Math.random()}.${fileExt}`;
+      const filePath = `${user.id}/${generateUUID()}.${fileExt}`;
 
+      // 1. Upload to storage
       const { error: uploadError } = await supabase.storage
         .from("files")
         .upload(filePath, file);
 
       if (uploadError) throw uploadError;
 
+      // 2. Create DB record
       const { data: fileRecord, error: dbError } = await supabase
         .from("files")
         .insert({
@@ -88,13 +322,14 @@ const CommunityPage = () => {
           file_type: file.type,
           file_size: file.size,
           user_id: user.id,
-          file_status: "ready",
+          file_status: "analysing",
         })
         .select()
         .single();
 
       if (dbError) throw dbError;
 
+      // 3. Link to community folder
       const { error: linkError } = await supabase
         .from("team_folder_files" as any)
         .insert({
@@ -105,8 +340,13 @@ const CommunityPage = () => {
 
       if (linkError) throw linkError;
 
-      toast.success(`"${file.name}" uploaded successfully!`);
-      queryClient.invalidateQueries({ queryKey: ["team-folders", selectedTeam] });
+      // 4. Trigger AI analysis
+      supabase.functions.invoke("analyze-file", {
+        body: { fileId: fileRecord.id, fileName: file.name, fileType: file.type }
+      }).catch(err => console.error("AI trigger failed", err));
+
+      toast.success(`"${file.name}" uploaded. AI is scanning it now...`);
+      queryClient.invalidateQueries({ queryKey: ["team-folder-files", folderId] });
     } catch (error: any) {
       toast.error(error.message || "Failed to upload file");
     } finally {
@@ -287,27 +527,66 @@ const CommunityPage = () => {
                       </div>
                       <div className="bg-card/40 rounded-2xl border border-border/20 overflow-hidden divide-y divide-border/10">
                         {members?.map((m) => {
+                          const roleIcons: Record<string, any> = { owner: Crown, admin: Shield, member: User, viewer: User };
+                          const roleColors: Record<string, string> = { owner: "text-warning", admin: "text-primary", member: "text-primary", viewer: "text-muted-foreground" };
                           const RoleIcon = roleIcons[m.role] || User;
+                          
+                          const currentUserMember = members?.find(mem => mem.user_id === currentUserId);
+                          const isOwner = currentUserMember?.role === 'owner';
+                          const isAdmin = currentUserMember?.role === 'admin';
+                          const isSelf = m.user_id === currentUserId;
+                          
+                          // RBAC: Only owner, admin, or self can manage a member
+                          const canManageThisMember = isOwner || isAdmin || isSelf;
+
                           return (
-                            <div key={m.id} className="flex items-center gap-4 p-4 hover:bg-secondary/20 transition-colors">
-                              <div className="w-10 h-10 rounded-full bg-secondary/80 flex items-center justify-center border-2 border-background shadow-sm">
-                                <RoleIcon className={cn("w-4 h-4", roleColors[m.role])} />
+                            <MemberContextMenu
+                              key={m.id}
+                              member={m}
+                              canManage={canManageThisMember}
+                              isOwner={isOwner}
+                              isSelf={isSelf}
+                              actions={{
+                                onChangeRole: async (role) => {
+                                  try {
+                                    await updateMemberRole.mutateAsync({ teamId: m.team_id, userId: m.user_id, role });
+                                    toast.success(`Role updated to ${role}`);
+                                  } catch (e: any) {
+                                    toast.error(e.message || "Failed to update role");
+                                  }
+                                },
+                                onRemove: async () => {
+                                  if (!confirm("Are you sure you want to remove this member?")) return;
+                                  try {
+                                    await removeMember.mutateAsync({ teamId: m.team_id, userId: m.user_id });
+                                    toast.success("Member removed");
+                                  } catch (e: any) {
+                                    toast.error(e.message || "Failed to remove member");
+                                  }
+                                },
+                                onInvite: () => setShowInvite(true),
+                              }}
+                            >
+                              <div className="flex items-center gap-4 p-4 hover:bg-secondary/20 transition-colors cursor-context-menu">
+                                <div className="w-10 h-10 rounded-full bg-secondary/80 flex items-center justify-center border-2 border-background shadow-sm">
+                                  <RoleIcon className={cn("w-4 h-4", roleColors[m.role])} />
+                                </div>
+                                <div className="min-w-0">
+                                  <p className="text-sm font-bold truncate">User_{m.user_id.slice(0, 5)}</p>
+                                  <span className={cn("text-[10px] font-bold uppercase tracking-tight px-2 py-0.5 rounded-md", 
+                                    m.role === 'owner' ? "bg-warning/10 text-warning" : "bg-primary/10 text-primary"
+                                  )}>
+                                    {m.role}
+                                  </span>
+                                </div>
                               </div>
-                              <div className="min-w-0">
-                                <p className="text-sm font-bold truncate">User_{m.user_id.slice(0, 5)}</p>
-                                <span className={cn("text-[10px] font-bold uppercase tracking-tight px-2 py-0.5 rounded-md", 
-                                  m.role === 'owner' ? "bg-warning/10 text-warning" : "bg-primary/10 text-primary"
-                                )}>
-                                  {m.role}
-                                </span>
-                              </div>
-                            </div>
+                            </MemberContextMenu>
                           );
                         })}
                       </div>
                     </div>
 
-                    {/* Folders and Content */}
+                    {/* Hierarchical Folders and Content */}
                     <div className="xl:col-span-8 space-y-4">
                       <div className="flex items-center justify-between px-1">
                         <h3 className="text-xs font-bold text-muted-foreground/60 uppercase tracking-widest">Shared Resources</h3>
@@ -334,61 +613,34 @@ const CommunityPage = () => {
                       </div>
 
                       {folders && folders.length > 0 ? (
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                          {folders.map((f) => (
-                            <motion.div 
-                              key={f.id} 
-                              whileHover={{ y: -4 }}
-                              className="group bg-card/40 hover:bg-card border border-border/30 rounded-2xl p-5 transition-all duration-300 shadow-sm hover:shadow-md relative overflow-hidden"
-                            >
-                              <div className="absolute top-0 left-0 w-1 h-full bg-primary/0 group-hover:bg-primary/30 transition-all" />
-                              <div className="flex items-start justify-between mb-4">
-                                <div className="p-2.5 rounded-xl bg-primary/10 text-primary">
-                                  <FolderPlus className="w-6 h-6" />
-                                </div>
-                                <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    className="h-8 w-8 rounded-lg hover:bg-primary/10 hover:text-primary"
-                                    onClick={() => setShareFolder({ id: f.id, name: f.name })}
-                                  >
-                                    <Share2 className="w-4 h-4" />
-                                  </Button>
-                                </div>
-                              </div>
-                              <div className="mb-4">
-                                <h4 className="font-bold text-lg leading-tight truncate pr-4">{f.name}</h4>
-                                <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider mt-1">Shared Directory</p>
-                              </div>
-                              
-                              <div className="flex items-center justify-between pt-4 border-t border-border/10">
-                                <Button 
-                                  size="sm" 
-                                  variant="outline" 
-                                  onClick={() => {
-                                    const input = fileInputRef.current;
-                                    if (input) {
-                                      input.setAttribute('data-folder-id', f.id);
-                                      input.click();
+                        <div className="space-y-3">
+                          {folders.map((f) => {
+                            const currentUserMember = members?.find(m => m.user_id === currentUserId);
+                            const userRole = currentUserMember?.role || 'viewer';
+                            
+                            // Unify RBAC: Admin, Owner, and Member (as Editor) have management access
+                            const isEditor = ['owner', 'admin', 'member'].includes(userRole) || activeCommunity.owner_id === currentUserId;
+
+                            return (
+                              <div key={f.id}>
+                                <CommunityFolderItem 
+                                  folder={f} 
+                                  teamId={activeCommunity.id}
+                                  isEditor={isEditor}
+                                  isExpanded={expandedFolder === f.id}
+                                  onToggle={() => setExpandedFolder(expandedFolder === f.id ? null : f.id)}
+                                  onShare={(resource) => setSharingResource(resource)}
+                                  onMove={() => toast.info("Move functionality coming soon: Select destination team.")}
+                                  onUpload={(fid) => {
+                                    if (fileInputRef.current) {
+                                      fileInputRef.current.setAttribute('data-folder-id', fid);
+                                      fileInputRef.current.click();
                                     }
                                   }}
-                                  className="h-9 px-3 rounded-lg text-xs gap-1.5 border-dashed border-primary/20 hover:border-primary hover:bg-primary/5 transition-all"
-                                >
-                                  {uploading === f.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Upload className="w-3.5 h-3.5" />}
-                                  Upload
-                                </Button>
-                                <Button
-                                  size="sm"
-                                  variant="ghost"
-                                  onClick={() => navigate(`/chat?userFolderId=${f.id}`)}
-                                  className="h-9 w-9 p-0 rounded-lg text-muted-foreground hover:text-accent hover:bg-accent/10"
-                                >
-                                  <MessageCircle className="w-4 h-4" />
-                                </Button>
+                                />
                               </div>
-                            </motion.div>
-                          ))}
+                            );
+                          })}
                         </div>
                       ) : (
                         <div className="text-center py-20 bg-secondary/10 rounded-3xl border border-dashed border-border/40">
@@ -398,6 +650,8 @@ const CommunityPage = () => {
                       )}
                     </div>
                   </div>
+
+
                 </motion.div>
               ) : (
                 <div className="flex flex-col items-center justify-center h-[500px] rounded-3xl border border-dashed border-border/40 bg-secondary/5 text-center p-8">
@@ -423,13 +677,13 @@ const CommunityPage = () => {
         className="hidden"
       />
 
-      {shareFolder && (
+      {sharingResource && (
         <ShareDialog
-          open={!!shareFolder}
-          onOpenChange={(open) => !open && setShareFolder(null)}
-          resourceId={shareFolder.id}
-          resourceName={shareFolder.name}
-          resourceType="folder"
+          open={!!sharingResource}
+          onOpenChange={(open) => !open && setSharingResource(null)}
+          resourceId={sharingResource.id}
+          resourceName={sharingResource.name}
+          resourceType={sharingResource.type}
         />
       )}
     </AppLayout>

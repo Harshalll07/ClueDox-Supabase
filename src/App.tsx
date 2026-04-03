@@ -4,6 +4,8 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { ThemeProvider } from "@/hooks/useTheme";
+import { UploadProvider } from "@/contexts/UploadContext";
+import { UploadPanel } from "@/components/UploadPanel";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import Index from "./pages/Index";
 import LandingPage from "./pages/LandingPage";
@@ -38,42 +40,46 @@ const queryClient = new QueryClient();
 const App = () => (
   <ErrorBoundary>
     <ThemeProvider>
-      <QueryClientProvider client={queryClient}>
-        <TooltipProvider>
-          <Toaster />
-          <Sonner />
-          <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
-            <Routes>
-              <Route path="/" element={<Index />} />
-              <Route path="/old-home" element={<LandingPage />} />
-              <Route path="/pricing" element={<PricingPage />} />
-              <Route path="/privacy" element={<PrivacyPolicyPage />} />
-              <Route path="/terms" element={<TermsPage />} />
-              <Route path="/dpr" element={<DPRPage />} />
-              <Route path="/eden-home" element={<EdenHomePage />} />
-              <Route path="/login" element={<Login />} />
-              <Route path="/reset-password" element={<ResetPasswordPage />} />
-              <Route path="/dashboard" element={<AuthGuard><Dashboard /></AuthGuard>} />
-              <Route path="/upload" element={<AuthGuard><UploadPage /></AuthGuard>} />
-              <Route path="/files" element={<AuthGuard><FilesPage /></AuthGuard>} />
-              <Route path="/search" element={<AuthGuard><SearchPage /></AuthGuard>} />
-              <Route path="/reminders" element={<AuthGuard><RemindersPage /></AuthGuard>} />
-              <Route path="/chat" element={<AuthGuard><ChatPage /></AuthGuard>} />
-              <Route path="/smart-folders" element={<AuthGuard><SmartFoldersPage /></AuthGuard>} />
-              <Route path="/compare" element={<AuthGuard><ComparePage /></AuthGuard>} />
-              <Route path="/settings" element={<AuthGuard><SettingsPage /></AuthGuard>} />
-              <Route path="/whatsapp" element={<AuthGuard><WhatsAppPage /></AuthGuard>} />
-              <Route path="/onboarding" element={<AuthGuard><OnboardingPage /></AuthGuard>} />
-              <Route path="/admin" element={<AuthGuard><AdminPage /></AuthGuard>} />
-              <Route path="/analytics" element={<AuthGuard><AnalyticsPage /></AuthGuard>} />
-              <Route path="/community" element={<AuthGuard><CommunityPage /></AuthGuard>} />
-              <Route path="/google-drive" element={<AuthGuard><GoogleDrivePage /></AuthGuard>} />
-              <Route path="/shared/:token" element={<SharedFilePage />} />
-              <Route path="*" element={<NotFound />} />
-            </Routes>
-          </BrowserRouter>
-        </TooltipProvider>
-      </QueryClientProvider>
+      <UploadProvider>
+        <QueryClientProvider client={queryClient}>
+          <TooltipProvider>
+            <Toaster />
+            <Sonner />
+            <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+              <Routes>
+                {/* ... routes ... */}
+                <Route path="/" element={<Index />} />
+                <Route path="/old-home" element={<LandingPage />} />
+                <Route path="/pricing" element={<PricingPage />} />
+                <Route path="/privacy" element={<PrivacyPolicyPage />} />
+                <Route path="/terms" element={<TermsPage />} />
+                <Route path="/dpr" element={<DPRPage />} />
+                <Route path="/eden-home" element={<EdenHomePage />} />
+                <Route path="/login" element={<Login />} />
+                <Route path="/reset-password" element={<ResetPasswordPage />} />
+                <Route path="/dashboard" element={<AuthGuard><Dashboard /></AuthGuard>} />
+                <Route path="/upload" element={<AuthGuard><UploadPage /></AuthGuard>} />
+                <Route path="/files" element={<AuthGuard><FilesPage /></AuthGuard>} />
+                <Route path="/search" element={<AuthGuard><SearchPage /></AuthGuard>} />
+                <Route path="/reminders" element={<AuthGuard><RemindersPage /></AuthGuard>} />
+                <Route path="/chat" element={<AuthGuard><ChatPage /></AuthGuard>} />
+                <Route path="/smart-folders" element={<AuthGuard><SmartFoldersPage /></AuthGuard>} />
+                <Route path="/compare" element={<AuthGuard><ComparePage /></AuthGuard>} />
+                <Route path="/settings" element={<AuthGuard><SettingsPage /></AuthGuard>} />
+                <Route path="/whatsapp" element={<AuthGuard><WhatsAppPage /></AuthGuard>} />
+                <Route path="/onboarding" element={<AuthGuard><OnboardingPage /></AuthGuard>} />
+                <Route path="/admin" element={<AuthGuard><AdminPage /></AuthGuard>} />
+                <Route path="/analytics" element={<AuthGuard><AnalyticsPage /></AuthGuard>} />
+                <Route path="/community" element={<AuthGuard><CommunityPage /></AuthGuard>} />
+                <Route path="/google-drive" element={<AuthGuard><GoogleDrivePage /></AuthGuard>} />
+                <Route path="/shared/:token" element={<SharedFilePage />} />
+                <Route path="*" element={<NotFound />} />
+              </Routes>
+              <UploadPanel />
+            </BrowserRouter>
+          </TooltipProvider>
+        </QueryClientProvider>
+      </UploadProvider>
     </ThemeProvider>
   </ErrorBoundary>
 );

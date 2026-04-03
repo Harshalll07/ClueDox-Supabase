@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
 import { Bell, Clock, AlertTriangle, Calendar, FileText, Download, Eye, CheckCircle } from "lucide-react";
-import AppLayout from "@/components/AppLayout";
+import AppLayout from "./AppLayout";
 import { useFiles } from "@/hooks/useFiles";
 import { Button } from "@/components/ui/button";
 import { downloadFile, viewFile } from "@/lib/fileUrl";
@@ -70,7 +70,7 @@ const RemindersPage = () => {
                       Expires: {new Date(file.expiry_date!).toLocaleDateString()} ·{" "}
                       <span className={cn(
                         severity === "expired" ? "text-destructive font-medium" :
-                        severity === "urgent" ? "text-warning font-medium" : "text-muted-foreground"
+                          severity === "urgent" ? "text-warning font-medium" : "text-muted-foreground"
                       )}>
                         {file.daysUntil > 0 ? `${file.daysUntil} days left` : `Expired ${Math.abs(file.daysUntil)} days ago`}
                       </span>

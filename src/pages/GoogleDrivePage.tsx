@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { HardDrive, FolderOpen, FileText, Image, Sheet, Presentation, Download, Upload, Search, ChevronRight, Loader2, ArrowLeft, RefreshCw } from "lucide-react";
-import AppLayout from "@/components/AppLayout";
+import AppLayout from "./AppLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
@@ -26,6 +26,28 @@ const getMimeIcon = (mimeType: string) => {
   if (mimeType.includes("presentation") || mimeType.includes("slide")) return Presentation;
   if (mimeType.startsWith("image/")) return Image;
   return FileText;
+};
+
+const getAuthHeaders = async () => {
+  const {
+    data: { session },
+    error,
+  } = await supabase.auth.getSession();
+
+  if (error) {
+    console.error("Error fetching Supabase session:", error);
+    throw new Error(error.message || "Failed to get Supabase session");
+  }
+
+  if (!session) {
+    throw new Error("User is not authenticated");
+  }
+
+  const headers = {
+    Authorization: `Bearer ${session.access_token}`,
+  };
+  console.log("getAuthHeaders", headers);
+  return headers;
 };
 
 const GoogleDrivePage = () => {
@@ -66,8 +88,10 @@ const GoogleDrivePage = () => {
   const listDriveFiles = async (query?: string) => {
     setLoading(true);
     try {
+      const headers = await getAuthHeaders();
       const resp = await supabase.functions.invoke("gdrive-api", {
         body: { action: "list", folderId: currentFolder.id, query: query || searchQuery },
+        headers,
       });
 
       if (resp.error) throw new Error(resp.error.message);
@@ -84,9 +108,11 @@ const GoogleDrivePage = () => {
   const exchangeCodeForToken = async (code: string) => {
     setExchangeLoading(true);
     try {
+      const headers = await getAuthHeaders();
       const redirectUri = `${window.location.origin}/google-drive`;
       const resp = await supabase.functions.invoke("gdrive-api", {
         body: { action: "exchange-code", code, redirectUri },
+        headers,
       });
 
       if (resp.error) throw new Error(resp.error.message);
@@ -112,9 +138,11 @@ const GoogleDrivePage = () => {
   const startDriveConnect = async () => {
     setConnecting(true);
     try {
+      const headers = await getAuthHeaders();
       const redirectUri = `${window.location.origin}/google-drive`;
       const resp = await supabase.functions.invoke("gdrive-api", {
         body: { action: "auth-url", redirectUri },
+        headers,
       });
 
       if (resp.error) throw new Error(resp.error.message);
@@ -148,6 +176,7 @@ const GoogleDrivePage = () => {
   const handleImport = async (file: DriveFile) => {
     setImporting((prev) => ({ ...prev, [file.id]: true }));
     try {
+      const headers = await getAuthHeaders();
       const resp = await supabase.functions.invoke("gdrive-api", {
         body: {
           action: "import",
@@ -155,6 +184,7 @@ const GoogleDrivePage = () => {
           fileName: file.name,
           mimeType: file.mimeType,
         },
+        headers,
       });
 
       if (resp.error) throw new Error(resp.error.message);
@@ -170,8 +200,10 @@ const GoogleDrivePage = () => {
   const handleExport = async (fileId: string, fileName: string) => {
     setExporting((prev) => ({ ...prev, [fileId]: true }));
     try {
+      const headers = await getAuthHeaders();
       const resp = await supabase.functions.invoke("gdrive-api", {
         body: { action: "export", fileId },
+        headers,
       });
 
       if (resp.error) throw new Error(resp.error.message);
@@ -275,18 +307,8 @@ const GoogleDrivePage = () => {
               ))}
             </div>
 
-            {/* Search + Refresh */}
-            <div className="flex gap-2 mb-4">
-              <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                <Input
-                  placeholder="Search Drive files..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && listDriveFiles()}
-                  className="pl-9"
-                />
-              </div>
+            {/* Refresh + Go Back */}
+            <div className="flex gap-2 mb-4 justify-end">
               <Button variant="outline" size="icon" onClick={() => listDriveFiles()} disabled={loading}>
                 <RefreshCw className={cn("w-4 h-4", loading && "animate-spin")} />
               </Button>

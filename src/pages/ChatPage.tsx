@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { motion, AnimatePresence } from "framer-motion";
 import { Send, Bot, User, Loader2, FileText, X, Folder, Plus } from "lucide-react";
-import AppLayout from "@/components/AppLayout";
+import AppLayout from "./AppLayout";
 import { useFiles } from "@/hooks/useFiles";
 import { useSmartFolders } from "@/hooks/useSmartFolders";
 import { useFolders } from "@/hooks/useFolders";
@@ -187,7 +187,7 @@ const ChatPage = () => {
       ...selectedFolderPaths.map(p => p[p.length - 1]),
       ...selectedUserFolderIds.map(id => userFolders.find(x => x.id === id)?.name).filter(Boolean)
     ];
-    
+
     if (names.length > 0) {
       contextDescription = `[Context: User has selected the following folders: ${names.join(", ")}. Please use these for the 'folder' context.]\n`;
     }
@@ -216,7 +216,7 @@ const ChatPage = () => {
         : [...prev, path]
     );
   };
-  
+
   const toggleUserFolder = (id: string) => {
     setSelectedUserFolderIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
   };

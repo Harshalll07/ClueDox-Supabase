@@ -104,6 +104,7 @@ export function SupportChat() {
     <ExpandableChat
       position="bottom-right"
       size="md"
+      className="z-[9999]"
       icon={<Sparkles className="h-6 w-6" />}
     >
       <ExpandableChatHeader>

@@ -5,7 +5,7 @@ import {
   Car, Home, Receipt, Image, IdCard, RefreshCw, Star, Eye, Download, GripVertical,
   Layers, MessageCircle, Sparkles,
 } from "lucide-react";
-import AppLayout from "@/components/AppLayout";
+import AppLayout from "./AppLayout";
 import { useFiles, FileWithTags } from "@/hooks/useFiles";
 import { useSmartFolders, SmartFolder, SubFolder, iconMap } from "@/hooks/useSmartFolders";
 import { Button } from "@/components/ui/button";
@@ -400,7 +400,7 @@ const SmartFoldersPage = () => {
   const analyzeFolder = async (folder: SmartFolder) => {
     const fileIds = getAllFileIdsInFolder(folder);
     const unanalyzedFiles = files?.filter(f => fileIds.includes(f.id) && f.file_status !== "ready") || [];
-    
+
     if (unanalyzedFiles.length === 0) {
       toast.info("All files in this folder are already analysed ✨");
       return;
@@ -411,7 +411,7 @@ const SmartFoldersPage = () => {
 
     try {
       const { data: { session } } = await supabase.auth.getSession();
-      
+
       // Process in small batches to avoid edge function timeout
       for (const file of unanalyzedFiles) {
         try {
@@ -421,10 +421,10 @@ const SmartFoldersPage = () => {
               "Content-Type": "application/json",
               Authorization: `Bearer ${session?.access_token}`,
             },
-            body: JSON.stringify({ 
-              fileId: file.id, 
-              fileName: file.file_name, 
-              fileType: file.file_type 
+            body: JSON.stringify({
+              fileId: file.id,
+              fileName: file.file_name,
+              fileType: file.file_type
             }),
           });
         } catch (err) {
@@ -528,8 +528,8 @@ const SmartFoldersPage = () => {
                           title="Analyse all files in folder"
                           className={cn(
                             "p-1.5 rounded-md transition-colors",
-                            analysingFolders.includes(folder.name) 
-                              ? "text-amber-500 animate-pulse" 
+                            analysingFolders.includes(folder.name)
+                              ? "text-amber-500 animate-pulse"
                               : "text-muted-foreground hover:text-amber-500 hover:bg-amber-500/10"
                           )}
                         >

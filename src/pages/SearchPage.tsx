@@ -1,7 +1,8 @@
 import { useState, useMemo, useCallback, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Search as SearchIcon, SlidersHorizontal, Loader2, Sparkles, Wand2, RefreshCw, Shield } from "lucide-react";
-import AppLayout from "@/components/AppLayout";
+import AppLayout from "./AppLayout";
+import { useSearchParams } from "react-router-dom";
 import { useFiles } from "@/hooks/useFiles";
 import type { FileWithTags } from "@/hooks/useFiles";
 import { getFileIcon, getFileColor, tagColors } from "@/data/mockFiles";
@@ -76,14 +77,23 @@ interface HybridResult {
 }
 
 const SearchPage = () => {
-  const [query, setQuery] = useState("");
+  const [searchParams] = useSearchParams();
+  const urlQuery = searchParams.get("q") || "";
+  const [query, setQuery] = useState(urlQuery);
+
+  // Sync query state with URL param
+  useEffect(() => {
+    if (urlQuery !== query) {
+      setQuery(urlQuery);
+    }
+  }, [urlQuery]);
+
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [selectedTypes, setSelectedTypes] = useState<string[]>([]);
   const [showFilters, setShowFilters] = useState(true);
   const [selectedFile, setSelectedFile] = useState<any>(null);
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
-  const [autocompleteOpen, setAutocompleteOpen] = useState(false);
   const [hybridResults, setHybridResults] = useState<HybridResult[]>([]);
   const [hybridLoading, setHybridLoading] = useState(false);
   const [hybridIntent, setHybridIntent] = useState<{ type: string; value: string } | null>(null);
@@ -259,14 +269,7 @@ const SearchPage = () => {
         </motion.div>
 
         <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="mb-6">
-          <SearchAutocomplete
-            value={query}
-            onChange={(val) => { setQuery(val); }}
-            onSelect={(suggestion) => { setQuery(suggestion); setAutocompleteOpen(false); }}
-            suggestions={filteredSuggestions}
-            isOpen={autocompleteOpen && filteredSuggestions.length > 0}
-            onOpenChange={setAutocompleteOpen}
-          />
+          {/* We removed the local SearchAutocomplete as search is now global in AppLayout */}
 
           <div className="flex items-center gap-2 mt-2 flex-wrap">
             {hybridIntent && (
@@ -297,8 +300,8 @@ const SearchPage = () => {
             {reanalyzeProgress && (
               <div className="flex items-center gap-1.5 text-xs text-primary bg-primary/10 px-2 py-0.5 rounded-full">
                 <span className="text-sm font-medium animate-pulse text-muted-foreground ml-2">
-                Re-organizing {reanalyzeProgress.done}/{reanalyzeProgress.total}
-              </span>
+                  Re-organizing {reanalyzeProgress.done}/{reanalyzeProgress.total}
+                </span>
               </div>
             )}
           </div>
@@ -368,7 +371,7 @@ const SearchPage = () => {
                                     className={cn(
                                       "h-full rounded-full transition-all",
                                       result.confidence >= 0.8 ? "bg-emerald-500" :
-                                      result.confidence >= 0.5 ? "bg-amber-500" : "bg-muted-foreground"
+                                        result.confidence >= 0.5 ? "bg-amber-500" : "bg-muted-foreground"
                                     )}
                                     style={{ width: `${result.confidence * 100}%` }}
                                   />

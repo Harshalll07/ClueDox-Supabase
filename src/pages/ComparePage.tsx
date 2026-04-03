@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { FileText, ArrowLeftRight, Loader2 } from "lucide-react";
-import AppLayout from "@/components/AppLayout";
+import AppLayout from "./AppLayout";
 import { useFiles } from "@/hooks/useFiles";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -11,7 +11,9 @@ import { cn } from "@/lib/utils";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useSharing, ResourceRole } from "@/hooks/useSharing";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Trash2, UserPlus, Shield, User as UserIcon, Crown } from "lucide-react";
+import { Trash2, UserPlus, Shield, User as UserIcon, Crown, Globe, Users } from "lucide-react";
+import { useTeams, useTeamMembers } from "@/hooks/useTeams";
+import { useCommunitySharing } from "@/hooks/useCommunitySharing";
 
 interface ShareDialogProps {
   open: boolean;
@@ -36,7 +38,7 @@ const ShareDialog = ({ open, onOpenChange, resourceId, resourceName, resourceTyp
   const [loading, setLoading] = useState(false);
   const [shareLink, setShareLink] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
-  
+
   // Collaboration state
   const { collaborators, createShare, removeShare } = useSharing(resourceId, resourceType);
   const [searchEmail, setSearchEmail] = useState("");
@@ -116,6 +118,7 @@ const ShareDialog = ({ open, onOpenChange, resourceId, resourceName, resourceTyp
         <Tabs defaultValue="people" className="w-full">
           <TabsList className="grid w-full grid-cols-2 rounded-xl mb-4">
             <TabsTrigger value="people" className="rounded-lg">People</TabsTrigger>
+            <TabsTrigger value="community" className="rounded-lg">Community</TabsTrigger>
             <TabsTrigger value="links" className="rounded-lg">Links</TabsTrigger>
           </TabsList>
 
@@ -138,8 +141,8 @@ const ShareDialog = ({ open, onOpenChange, resourceId, resourceName, resourceTyp
                   <SelectItem value="editor">Editor</SelectItem>
                 </SelectContent>
               </Select>
-              <Button 
-                size="sm" 
+              <Button
+                size="sm"
                 className="rounded-xl px-4"
                 onClick={async () => {
                   if (!searchEmail) return;
@@ -151,7 +154,7 @@ const ShareDialog = ({ open, onOpenChange, resourceId, resourceName, resourceTyp
                     .or(`full_name.ilike.%${searchEmail}%,phone_number.ilike.%${searchEmail}%`)
                     .limit(1)
                     .maybeSingle();
-                  
+
                   if (profile) {
                     await createShare.mutateAsync({ targetUserId: profile.user_id, role: selectedRole });
                     setSearchEmail("");
@@ -182,7 +185,7 @@ const ShareDialog = ({ open, onOpenChange, resourceId, resourceName, resourceTyp
                       <p className="text-xs font-semibold truncate">{collab.profiles?.full_name}</p>
                       <p className="text-[10px] text-muted-foreground capitalize">{collab.role}</p>
                     </div>
-                    <button 
+                    <button
                       onClick={() => removeShare.mutate(collab.id)}
                       className="p-2 text-muted-foreground hover:text-destructive transition-colors"
                     >
@@ -192,6 +195,14 @@ const ShareDialog = ({ open, onOpenChange, resourceId, resourceName, resourceTyp
                 ))
               )}
             </div>
+          </TabsContent>
+
+          <TabsContent value="community" className="space-y-4 pt-0">
+            <CommunityShareTab
+              resourceId={resourceId}
+              resourceName={resourceName}
+              resourceType={resourceType}
+            />
           </TabsContent>
 
           <TabsContent value="links" className="space-y-4 pt-0">
@@ -279,3 +290,103 @@ const ShareDialog = ({ open, onOpenChange, resourceId, resourceName, resourceTyp
 };
 
 export default ShareDialog;
+
+const CommunityShareTab = ({ resourceId, resourceName, resourceType }: any) => {
+  const { data: teams } = useTeams();
+  const [selectedTeamId, setSelectedTeamId] = useState<string>("");
+  const [selectedMemberId, setSelectedMemberId] = useState<string>("all");
+  const [permission, setPermission] = useState<"view" | "edit">("view");
+  const [isSearching, setIsSearching] = useState(false);
+
+  const { data: teamMembers } = useTeamMembers(selectedTeamId || null);
+  const [memberProfiles, setMemberProfiles] = useState<any[]>([]);
+  const { shares, createCommunityShare, removeCommunityShare } = useCommunitySharing(resourceId, resourceType);
+
+  useEffect(() => {
+    if (selectedTeamId && teamMembers) {
+      const fetchProfiles = async () => {
+        const userIds = teamMembers.map(m => m.user_id);
+        const { data: profiles } = await supabase
+          .from("profiles")
+          .select("user_id, full_name")
+          .in("user_id", userIds);
+        if (profiles) setMemberProfiles(profiles);
+      };
+      fetchProfiles();
+    } else {
+      setMemberProfiles([]);
+    }
+  }, [selectedTeamId, teamMembers]);
+
+  const handleShare = () => {
+    if (!selectedTeamId) return;
+    createCommunityShare.mutate({
+      teamId: selectedTeamId,
+      sharedWithUserId: selectedMemberId === "all" ? null : selectedMemberId,
+      permission
+    });
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="grid grid-cols-2 gap-2">
+        <Select value={selectedTeamId} onValueChange={setSelectedTeamId}>
+          <SelectTrigger className="rounded-xl h-9">
+            <SelectValue placeholder="Team..." />
+          </SelectTrigger>
+          <SelectContent>
+            {teams?.map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
+          </SelectContent>
+        </Select>
+        <Select value={selectedMemberId} onValueChange={setSelectedMemberId} disabled={!selectedTeamId}>
+          <SelectTrigger className="rounded-xl h-9">
+            <SelectValue placeholder="Member..." />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Everyone</SelectItem>
+            {memberProfiles.map(p => <SelectItem key={p.user_id} value={p.user_id}>{p.full_name}</SelectItem>)}
+          </SelectContent>
+        </Select>
+      </div>
+
+      <div className="flex gap-2">
+        <Select value={permission} onValueChange={(v: any) => setPermission(v)}>
+          <SelectTrigger className="rounded-xl h-9 flex-1">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="view">Can View</SelectItem>
+            <SelectItem value="edit">Can Edit</SelectItem>
+          </SelectContent>
+        </Select>
+        <Button size="sm" className="rounded-xl px-4" onClick={handleShare} disabled={!selectedTeamId || createCommunityShare.isPending}>
+          {createCommunityShare.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <UserPlus className="w-4 h-4" />}
+        </Button>
+      </div>
+
+      <div className="space-y-2 max-h-[160px] overflow-y-auto pr-1">
+        <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground px-1">Community Access</p>
+        {shares.length === 0 ? (
+          <p className="text-xs text-muted-foreground text-center py-4 italic">No community sharing yet</p>
+        ) : (
+          shares.map((s) => (
+            <div key={s.id} className="flex items-center gap-3 p-2 rounded-xl bg-secondary/30 border border-border/30">
+              <div className="w-8 h-8 rounded-lg bg-primary/10 text-primary flex items-center justify-center shrink-0">
+                {s.shared_with_user_id ? <Users className="w-4 h-4" /> : <Globe className="w-4 h-4" />}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-semibold truncate">{s.teams?.name}</p>
+                <p className="text-[10px] text-muted-foreground">
+                  {s.shared_with_user_id ? s.profiles?.full_name : "Entire Community"} · {s.permission}
+                </p>
+              </div>
+              <button onClick={() => removeCommunityShare.mutate(s.id)} className="p-2 text-muted-foreground hover:text-red-500 transition-colors">
+                <Trash2 className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          ))
+        )}
+      </div>
+    </div>
+  );
+};

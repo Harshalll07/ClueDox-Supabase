@@ -1,7 +1,7 @@
 import { motion } from "framer-motion";
 import { BarChart3, Upload, Search, Eye, Share2, Download, TrendingUp, Activity } from "lucide-react";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from "recharts";
-import AppLayout from "@/components/AppLayout";
+import AppLayout from "./AppLayout";
 import { useAnalyticsSummary } from "@/hooks/useAnalytics";
 import { cn } from "@/lib/utils";
 

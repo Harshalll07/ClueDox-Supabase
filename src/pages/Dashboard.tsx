@@ -1,7 +1,7 @@
 import { useFiles } from "@/hooks/useFiles";
 import { Link, useNavigate } from "react-router-dom";
 import { Upload, Search, Clock, File, Folder, MoreVertical } from "lucide-react";
-import AppLayout from "@/components/AppLayout";
+import AppLayout from "./AppLayout";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip } from "recharts";
 import { format } from "date-fns";
 import { viewFile } from "@/lib/fileUrl";
@@ -14,12 +14,6 @@ const Dashboard = () => {
   const navigate = useNavigate();
 
   const allFiles = files || [];
-
-  const handleSearch = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === "Enter" && e.currentTarget.value.trim()) {
-      navigate(`/search?q=${encodeURIComponent(e.currentTarget.value.trim())}`);
-    }
-  };
 
   const totalFiles = allFiles.length;
   const recentFiles = allFiles.slice(0, 5);
@@ -53,23 +47,12 @@ const Dashboard = () => {
 
   return (
     <AppLayout>
-      <div className="flex flex-col h-full bg-white dark:bg-slate-900 text-gray-900 dark:text-gray-100">
+      <div className="flex flex-col h-full bg-transparent text-gray-900 dark:text-gray-100">
         <div className="w-full max-w-[1400px] mx-auto px-6 pt-2 pb-2 shrink-0">
           <div className="min-h-full bg-transparent dark:bg-transparent text-gray-900 dark:text-gray-100">
             <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 py-6">
               <div className="mb-6 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-                <div>
-                  {/* Removed duplicated Overview block to keep minimal header */}
-                </div>
-                <div className="relative w-full max-w-md">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                  <input
-                    type="text"
-                    onKeyDown={handleSearch}
-                    placeholder="Search files by meaning, context, or filename (Press Enter)..."
-                    className="w-full pl-10 pr-4 py-2 rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-[#111] focus:outline-none focus:ring-2 focus:ring-purple-200 dark:focus:ring-purple-900 text-slate-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-400 text-sm"
-                  />
-                </div>
+                <div></div>
               </div>
 
               <div className="mb-6">

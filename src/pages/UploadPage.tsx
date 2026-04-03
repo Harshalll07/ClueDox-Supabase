@@ -1,60 +1,29 @@
-import { motion, AnimatePresence } from "framer-motion";
-import { Upload, X, FileText, Image, File, CheckCircle, AlertCircle, FolderUp, Sparkles, Loader2 } from "lucide-react";
-import AppLayout from "@/components/AppLayout";
-import { Progress } from "@/components/ui/progress";
+import { motion } from "framer-motion";
+import { Upload, FolderUp, Sparkles, Loader2 } from "lucide-react";
+import AppLayout from "./AppLayout";
 import { cn } from "@/lib/utils";
-import { useFileUpload } from "@/hooks/useFileUpload";
-import { useCallback, useEffect, useState } from "react";
+import { useUploadStore } from "@/contexts/UploadContext";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Badge } from "@/components/ui/badge";
-
-const FILE_STATUS_MAP: Record<string, { label: string; color: string }> = {
-  uploading: { label: "Uploading", color: "bg-blue-500/10 text-blue-500" },
-  analysing: { label: "AI Analysing", color: "bg-amber-500/10 text-amber-500" },
-  ready: { label: "Ready", color: "bg-emerald-500/10 text-emerald-500" },
-  error: { label: "Error", color: "bg-destructive/10 text-destructive" },
-};
-
-const AI_LOADING_LINES = [
-  "Cooking your file rn... AI chef mode 🍳",
-  "Hold up, brain cells are syncing ⚡",
-  "No cap, this doc is getting decoded 🧠",
-  "Big analysis energy loading... 💅",
-  "We vibing through your PDF pixels 🎧",
-  "Yeeting raw text into smart tags 🚀",
-  "Main character analysis moment ✨",
-  "Lowkey turning chaos into order 📚",
-];
 
 const UploadPage = () => {
-  const { files, handleFiles, removeFile } = useFileUpload();
+  const { addUpload } = useUploadStore();
   const [isDragging, setIsDragging] = useState(false);
   const [categorizing, setCategorizing] = useState(false);
-  const [loadingLineTick, setLoadingLineTick] = useState(0);
 
-  useEffect(() => {
-    const hasProcessingFiles = files.some((file) => file.status === "processing");
-    if (!hasProcessingFiles) return;
+  const handleFiles = (fileList: FileList) => {
+    Array.from(fileList).forEach(file => {
+      addUpload(file);
+    });
+    toast.success(`${fileList.length} ${fileList.length === 1 ? 'file' : 'files'} added to upload queue`);
+  };
 
-    const intervalId = window.setInterval(() => {
-      setLoadingLineTick((prev) => prev + 1);
-    }, 1800);
-
-    return () => window.clearInterval(intervalId);
-  }, [files]);
-
-  const handleDrop = useCallback((e: React.DragEvent) => {
+  const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
     setIsDragging(false);
-    handleFiles(e.dataTransfer.files);
-  }, [handleFiles]);
-
-  const getIcon = (type: string) => {
-    if (type.startsWith("image/")) return Image;
-    if (type.includes("pdf")) return FileText;
-    return File;
+    if (e.dataTransfer.files) handleFiles(e.dataTransfer.files);
   };
 
   const handleBulkUpload = () => {
@@ -90,139 +59,138 @@ const UploadPage = () => {
     }
   };
 
-  const completedCount = files.filter(f => f.status === "complete").length;
-
-  const getGenZLoadingLine = (fileId: string) => {
-    const seed = Array.from(fileId).reduce((acc, char) => acc + char.charCodeAt(0), 0);
-    const index = (seed + loadingLineTick) % AI_LOADING_LINES.length;
-    return AI_LOADING_LINES[index];
-  };
-
   return (
     <AppLayout>
-      <div className="max-w-3xl mx-auto py-8">
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="mb-8">
-          <h1 className="text-3xl font-bold text-foreground" style={{ fontFamily: "'Playfair Display', serif" }}>Upload Files</h1>
-          <p className="text-muted-foreground text-sm mt-2">Drag & drop files for AI-powered analysis</p>
-        </motion.div>
-
-        <div className="flex gap-3 mb-6">
-          <Button onClick={handleBulkUpload} variant="outline" className="rounded-xl gap-2">
-            <FolderUp className="w-4 h-4" />
-            Bulk Upload
-          </Button>
-          <Button onClick={autoCategorize} disabled={categorizing} variant="outline" className="rounded-xl gap-2">
-            {categorizing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-            Auto-Categorize All
-          </Button>
-        </div>
-
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
-          onDragLeave={() => setIsDragging(false)}
-          onDrop={handleDrop}
-          className={cn(
-            "relative border-2 border-dashed rounded-xl p-12 text-center transition-all duration-300 cursor-pointer",
-            isDragging
-              ? "border-primary bg-primary/5 scale-[1.01]"
-              : "border-border hover:border-primary/40 hover:bg-card/50"
-          )}
-          onClick={() => {
-            const input = document.createElement("input");
-            input.type = "file";
-            input.multiple = true;
-            input.accept = ".pdf,.jpg,.jpeg,.png,.docx";
-            input.onchange = (e) => {
-              const target = e.target as HTMLInputElement;
-              if (target.files) handleFiles(target.files);
-            };
-            input.click();
-          }}
-        >
-          <div className="flex flex-col items-center gap-4">
-            <div className={cn(
-              "w-16 h-16 rounded-2xl flex items-center justify-center transition-colors",
-              isDragging ? "bg-primary/20" : "bg-secondary"
-            )}>
-              <Upload className={cn("w-7 h-7", isDragging ? "text-primary" : "text-muted-foreground")} />
+      <div className="h-[calc(100vh-64px)] overflow-hidden flex flex-col">
+        <div className="max-w-5xl mx-auto w-full px-6 py-4 flex-1 flex flex-col min-h-0">
+          {/* HEADER (Reduced vertical margins) */}
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mb-4 text-center md:text-left shrink-0"
+          >
+            <div className="flex flex-col md:flex-row items-center md:items-start gap-3 mb-1">
+              <div className="w-10 h-10 rounded-2xl bg-indigo-50 flex items-center justify-center shadow-sm border border-indigo-100">
+                <Upload className="w-5 h-5 text-indigo-600" />
+              </div>
+              <div>
+                <h1 className="text-3xl font-bold text-gray-900 tracking-tight" style={{ fontFamily: "'Playfair Display', serif" }}>
+                  Upload Center
+                </h1>
+                <p className="text-gray-500 text-sm mt-0.5 max-w-lg">
+                  Drag, drop, and keep moving while we handle the heavy lifting.
+                </p>
+              </div>
             </div>
-            <div>
-              <p className="font-semibold mb-1">
-                {isDragging ? "Drop files here" : "Click or drag files to upload"}
-              </p>
-              <p className="text-sm text-muted-foreground">PDF, JPG, PNG, DOCX · Max 25MB</p>
+          </motion.div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-start flex-1 min-h-0 overflow-y-auto scrollbar-hide pb-4">
+            {/* MAIN UPLOAD ZONE */}
+            <div className="md:col-span-2 space-y-4">
+              <motion.div
+                initial={{ opacity: 0, scale: 0.98 }}
+                animate={{ opacity: 1, scale: 1 }}
+                onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
+                onDragLeave={() => setIsDragging(false)}
+                onDrop={handleDrop}
+                className={cn(
+                  "relative border-2 border-dashed rounded-[2.5rem] p-10 md:p-14 text-center transition-all duration-500 cursor-pointer overflow-hidden group shadow-sm",
+                  isDragging
+                    ? "border-indigo-500 bg-indigo-50/50 scale-[1.01] shadow-2xl shadow-indigo-100"
+                    : "border-gray-100 bg-white hover:border-indigo-200 hover:shadow-[0_20px_50px_-20px_rgba(0,0,0,0.1)]"
+                )}
+                onClick={handleBulkUpload}
+              >
+                <div className="absolute inset-0 bg-gradient-to-b from-indigo-50/0 to-indigo-50/30 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
+
+                <div className="relative flex flex-col items-center gap-4">
+                  <div className={cn(
+                    "w-20 h-20 rounded-[2.5rem] flex items-center justify-center transition-all duration-500 shadow-xl",
+                    isDragging ? "bg-indigo-600 rotate-12 scale-110 shadow-indigo-200" : "bg-gray-900 group-hover:bg-indigo-600 group-hover:rotate-6 shadow-gray-100"
+                  )}>
+                    <Upload className={cn("w-8 h-8 text-white transition-transform duration-500", isDragging && "animate-bounce")} />
+                  </div>
+
+                  <div className="space-y-1">
+                    <h3 className="text-2xl font-bold text-gray-900 leading-tight">
+                      {isDragging ? "Yes! Drop it here" : "Ready to organize?"}
+                    </h3>
+                    <p className="text-gray-400 font-medium text-sm">
+                      Drop PDF, JPG, PNG, or DOCX
+                    </p>
+                  </div>
+
+                  <Button variant="outline" className="rounded-xl px-8 h-12 font-extrabold border-gray-100 shadow-sm hover:shadow-md hover:bg-gray-50 transition-all text-gray-700 bg-white">
+                    Computer Files
+                  </Button>
+                </div>
+              </motion.div>
+
+              {/* FEATURES GRID (Reduced paddings) */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="p-6 rounded-[2rem] bg-emerald-50/50 border border-emerald-100/50 group hover:bg-white transition-all shadow-sm hover:shadow-md">
+                  <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center mb-4 shadow-sm border border-emerald-50 group-hover:scale-110 transition-transform">
+                    <Sparkles className="w-5 h-5 text-emerald-600" />
+                  </div>
+                  <h4 className="font-bold text-emerald-900 mb-1 text-base">Deep AI Scanning</h4>
+                  <p className="text-[13px] text-emerald-700/70 leading-relaxed font-medium">
+                    We'll extract text, summarize content, and suggest relevant tags automatically.
+                  </p>
+                </div>
+                <div className="p-6 rounded-[2rem] bg-indigo-50/50 border border-indigo-100/50 group hover:bg-white transition-all shadow-sm hover:shadow-md">
+                  <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center mb-4 shadow-sm border border-indigo-50 group-hover:scale-110 transition-transform">
+                    <FolderUp className="w-5 h-5 text-indigo-600" />
+                  </div>
+                  <h4 className="font-bold text-indigo-900 mb-1 text-base">Work Interruption-Free</h4>
+                  <p className="text-[13px] text-indigo-700/70 leading-relaxed font-medium">
+                    Your files process in the background. Navigate anywhere and stay productive.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* RIGHT SIDEBAR (Reduced paddings) */}
+            <div className="space-y-4">
+              <div className="bg-gray-950 p-6 rounded-[2.5rem] text-white overflow-hidden relative group shadow-2xl shadow-indigo-200">
+                <div className="absolute top-0 right-0 w-48 h-48 bg-indigo-500/20 rounded-full blur-[80px] -mr-24 -mt-24 group-hover:scale-125 transition-transform duration-1000" />
+                <h3 className="text-xl font-bold mb-2 relative z-10 tracking-tight leading-tight">Master <br />Categorization</h3>
+                <p className="text-gray-400 text-[13px] mb-6 relative z-10 leading-relaxed font-medium">
+                  Our neural engines sort every single byte of data into intelligent projects.
+                </p>
+                <Button
+                  onClick={autoCategorize}
+                  disabled={categorizing}
+                  className="w-full rounded-xl bg-white text-gray-950 hover:bg-indigo-50 h-12 font-black transition-all relative z-10 shadow-xl shadow-white/5 active:scale-95"
+                >
+                  {categorizing ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Sparkles className="w-4 h-4 mr-2" />}
+                  Auto-Categorize
+                </Button>
+              </div>
+
+              <div className="p-6 rounded-[2.5rem] border border-gray-50 bg-gray-50/30">
+                <h4 className="font-bold text-gray-900 mb-4 flex items-center gap-2">
+                  <div className="w-2 h-2 rounded-full bg-indigo-500 shadow-[0_0_10px_rgba(99,102,241,0.5)]" />
+                  Upload Tips
+                </h4>
+                <ul className="space-y-4">
+                  {[
+                    "Max file size: 25MB",
+                    "AI Analysis: ~20s",
+                    "SSL Protected transfers",
+                    "Non-blocking UI"
+                  ].map((text, i) => (
+                    <li key={i} className="flex gap-3 text-[13px] text-gray-600 font-bold items-center">
+                      <div className="w-5 h-5 rounded-lg bg-white flex items-center justify-center shrink-0 border border-gray-100 text-[10px] font-black text-indigo-600 shadow-sm">
+                        {i + 1}
+                      </div>
+                      {text}
+                    </li>
+                  ))}
+                </ul>
+              </div>
             </div>
           </div>
-        </motion.div>
-
-        <AnimatePresence>
-          {files.length > 0 && (
-            <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} className="mt-6 space-y-3">
-              {completedCount > 0 && (
-                <div className="flex items-center justify-between px-1 mb-2">
-                  <span className="text-xs text-muted-foreground">{completedCount} of {files.length} uploaded</span>
-                </div>
-              )}
-              {files.map((f) => {
-                const Icon = getIcon(f.file.type);
-                const statusInfo = f.fileStatus ? FILE_STATUS_MAP[f.fileStatus] : null;
-                return (
-                  <motion.div key={f.id} initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 10 }} className="glass rounded-xl p-4">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-lg bg-secondary flex items-center justify-center">
-                        <Icon className="w-5 h-5 text-muted-foreground" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
-                          <p className="text-sm font-medium truncate">{f.file.name}</p>
-                          {statusInfo && (
-                            <Badge variant="outline" className={cn("text-[10px] px-1.5 py-0 border-0", statusInfo.color)}>
-                              {statusInfo.label}
-                            </Badge>
-                          )}
-                        </div>
-                        <p className="text-xs text-muted-foreground">
-                          {(f.file.size / (1024 * 1024)).toFixed(1)} MB ·{" "}
-                          {f.status === "uploading" && "Uploading..."}
-                          {f.status === "processing" && getGenZLoadingLine(f.id)}
-                          {f.status === "complete" && "Complete"}
-                          {f.status === "error" && (f.errorMessage || "Error")}
-                        </p>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        {f.status === "complete" && <CheckCircle className="w-5 h-5 text-success" />}
-                        {f.status === "error" && <AlertCircle className="w-5 h-5 text-destructive" />}
-                        <button onClick={(e) => { e.stopPropagation(); removeFile(f.id); }} className="text-muted-foreground hover:text-foreground">
-                          <X className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </div>
-                    {(f.status === "uploading" || f.status === "processing") && (
-                      <div className="mt-3">
-                        <Progress value={f.status === "processing" ? 100 : f.progress} className="h-1.5" />
-                      </div>
-                    )}
-                    {f.status === "complete" && f.aiTags && (
-                      <motion.div initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }} className="mt-3 p-3 rounded-lg bg-secondary/50">
-                        <div className="flex items-center gap-2 mb-2">
-                          <span className="text-xs font-medium text-primary">AI Analysis</span>
-                        </div>
-                        <div className="flex gap-1.5 mb-2 flex-wrap">
-                          {f.aiTags.map((tag) => (
-                            <span key={tag} className="text-[10px] px-2 py-0.5 rounded-full bg-primary/10 text-primary font-medium">{tag}</span>
-                          ))}
-                        </div>
-                        <p className="text-xs text-muted-foreground">{f.aiSummary}</p>
-                      </motion.div>
-                    )}
-                  </motion.div>
-                );
-              })}
-            </motion.div>
-          )}
-        </AnimatePresence>
+        </div>
       </div>
     </AppLayout>
   );

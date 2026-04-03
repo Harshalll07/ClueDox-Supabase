@@ -1,23 +1,26 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { 
-  Share2, PanelLeftClose, PanelLeft, Pencil, Globe, 
-  Eye, Download, ArrowLeft, Grid3X3, List, 
-  MessageCircle, FolderPlus, Folder, Loader2 
+import {
+  Share2, PanelLeftClose, PanelLeft, Pencil, Globe,
+  Eye, Download, ArrowLeft, Grid3X3, List,
+  MessageCircle, FolderPlus, Folder, Loader2,
+  Upload, HardDrive
 } from "lucide-react";
 import { downloadFile, viewFile } from "@/lib/fileUrl";
-import AppLayout from "@/components/AppLayout";
+import AppLayout from "./AppLayout";
 import { FileContextMenu } from "@/components/FileContextMenu";
 import { Input } from "@/components/ui/input";
 import { useFiles } from "@/hooks/useFiles";
 import type { FileWithTags } from "@/hooks/useFiles";
 import FileDetailPanel from "@/components/FileDetailPanel";
 import { cn } from "@/lib/utils";
+import { useUploadStore } from "@/contexts/UploadContext";
 import { getFileIcon, getFileColor, tagColors } from "@/data/mockFiles";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import ShareDialog from "@/components/ShareDialog";
+import { CommunityShareModal } from "@/components/community/CommunityShareModal";
 import { CollaboratorAvatars } from "@/components/CollaboratorAvatars";
 import { useSharing } from "@/hooks/useSharing";
 import {
@@ -88,13 +91,28 @@ const FilesPage = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const queryClient = useQueryClient();
+  const { addUpload } = useUploadStore();
+
+  const handleUploadClick = () => {
+    const input = document.createElement("input");
+    input.type = "file";
+    input.multiple = true;
+    input.onchange = (e) => {
+      const target = e.target as HTMLInputElement;
+      if (target.files) {
+        Array.from(target.files).forEach(file => addUpload(file));
+      }
+    };
+    input.click();
+  };
 
   // Database-backed folder management
   const { folders, createFolder: createFolderMutation, deleteFolder: deleteFolderMutation, renameFolder: renameFolderMutation, addFileToFolder: addFileMutation, removeFileFromFolder: removeFileMutation } = useFolders();
 
   const [activeFolder, setActiveFolder] = useState<string | null>(searchParams.get("folderId"));
+  const [activeSourceFolder, setActiveSourceFolder] = useState("all");
   const [showNewFolder, setShowNewFolder] = useState(false);
-  
+
   // Sync active folder with URL
   useEffect(() => {
     const folderId = searchParams.get("folderId");
@@ -109,6 +127,7 @@ const FilesPage = () => {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [shareFile, setShareFile] = useState<{ id: string; name: string } | null>(null);
   const [shareFolder, setShareFolder] = useState<{ id: string; name: string } | null>(null);
+  const [showCommunityShare, setShowCommunityShare] = useState(false);
 
   // Sharing hook for active folder
   const { currentUserRole: folderRole } = useSharing(activeFolder || undefined, "folder");
@@ -208,6 +227,13 @@ const FilesPage = () => {
     if (activeFolder && activeFolderData) {
       if (!activeFolderData.fileIds.includes(f.id)) return false;
     }
+
+    // Apply source filter logic
+    if (activeSourceFolder === "all") return false; // IMPORTANT: hide all files by default
+
+    const fileSource = (f as any).source || (f.file_url?.includes('drive') ? 'drive' : 'upload');
+    if (fileSource !== activeSourceFolder) return false;
+
     const matchesSearch =
       f.file_name.toLowerCase().includes(filter.toLowerCase()) ||
       f.tags.some((t) => t.name.toLowerCase().includes(filter.toLowerCase()));
@@ -444,140 +470,140 @@ const FilesPage = () => {
       <div className="max-w-7xl mx-auto flex flex-col md:flex-row gap-4 md:gap-8 py-6">
         {/* Left Sidebar - Folders & Categories */}
         {!sidebarCollapsed && (
-        <motion.div
-          initial={{ opacity: 0, x: -20 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ duration: 0.3 }}
-          className="hidden md:block w-52 flex-shrink-0 sticky top-6 h-fit space-y-4"
-        >
-          {/* Folders Section */}
-          <div className="bg-gradient-to-br from-card to-card/80 rounded-3xl p-6 shadow-sm backdrop-blur-sm border border-border/30">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="font-bold text-base text-foreground">Folders</h2>
-              {isEditor && (
-                <motion.button
-                  whileHover={{ scale: 1.1 }}
-                  whileTap={{ scale: 0.95 }}
-                  onClick={() => setShowNewFolder(true)}
-                  className="p-1.5 rounded-lg hover:bg-primary/10 text-primary transition-colors"
-                  title="New folder"
-                >
-                  <FolderPlus className="w-4 h-4" />
-                </motion.button>
-              )}
-            </div>
-
-            <motion.button
-              whileHover={{ x: 4 }}
-              onClick={() => setActiveFolder(null)}
-              className={cn(
-                "w-full text-left px-4 py-2.5 rounded-2xl text-sm font-medium transition-all duration-300 mb-1",
-                activeFolder === null
-                  ? "bg-primary text-primary-foreground shadow-lg shadow-primary/30"
-                  : "text-muted-foreground hover:bg-secondary/60 hover:text-foreground"
-              )}
-            >
-              All Files
-            </motion.button>
-
-            {folders.map((folder) => (
-              <FileContextMenu 
-                key={folder.id} 
-                resource={{ id: folder.id, name: folder.name, type: "folder" }}
-                isEditor={isEditor}
-                actions={{
-                  onOpen: () => setActiveFolder(activeFolder === folder.id ? null : folder.id),
-                  onShare: () => setShareFolder({ id: folder.id, name: folder.name }),
-                  onChat: () => navigate(`/chat?userFolderId=${folder.id}`),
-                  onRename: () => { setRenamingFolder(folder.id); setRenameValue(folder.name); },
-                  onDelete: () => handleDeleteFolder(folder.id),
-                }}
-              >
-                <motion.div
-                  role="button"
-                  whileHover={{ x: 4 }}
-                  onDragOver={(e: React.DragEvent) => { e.preventDefault(); setDragOverFolder(folder.id); }}
-                  onDragLeave={() => setDragOverFolder(null)}
-                  onDrop={(e: React.DragEvent) => {
-                    e.preventDefault();
-                    setDragOverFolder(null);
-                    const fileId = e.dataTransfer.getData("text/plain");
-                    if (fileId) handleAddFileToFolder(folder.id, fileId, folder.name);
-                  }}
-                  onClick={() => setActiveFolder(activeFolder === folder.id ? null : folder.id)}
-                  className={cn(
-                    "w-full text-left px-4 py-2.5 rounded-2xl text-sm font-medium transition-all duration-300 flex items-center gap-2 cursor-pointer",
-                    activeFolder === folder.id
-                      ? "bg-primary text-primary-foreground shadow-lg shadow-primary/30"
-                      : dragOverFolder === folder.id
-                      ? "bg-accent/20 border-2 border-dashed border-accent text-accent"
-                      : "text-muted-foreground hover:bg-secondary/60 hover:text-foreground"
-                  )}
-                >
-                  <Folder className="w-3.5 h-3.5 shrink-0" />
-                  <span className="truncate flex-1">{folder.name}</span>
-                  <div className="flex items-center gap-1">
-                    <button
-                      onClick={(e) => { e.stopPropagation(); navigate(`/chat?userFolderId=${folder.id}`); }}
-                      title="Chat with folder"
-                      className={cn(
-                        "p-1 rounded-md transition-colors",
-                        activeFolder === folder.id ? "hover:bg-primary-foreground/20" : "hover:bg-primary/10 text-muted-foreground hover:text-primary"
-                      )}
-                    >
-                      <MessageCircle className="w-3 h-3" />
-                    </button>
-                    <span className={cn("text-xs px-1.5 rounded-lg", activeFolder === folder.id ? "bg-primary-foreground/20" : "bg-muted/50")}>
-                      {folder.fileIds.length}
-                    </span>
-                  </div>
-                </motion.div>
-              </FileContextMenu>
-            ))}
-
-            {folders.length === 0 && (
-              <p className="text-xs text-muted-foreground/60 text-center py-2">Create folders to organize files</p>
-            )}
-          </div>
-
-          {/* Categories */}
-          <div className="bg-gradient-to-br from-card to-card/80 rounded-3xl p-6 shadow-sm backdrop-blur-sm border border-border/30">
-            <h2 className="font-bold text-base mb-5 text-foreground">Categories</h2>
-            <div className="space-y-2.5">
-              {visibleCategories.map((cat, idx) => {
-                const count = cat.name === "all"
-                  ? (files || []).length
-                  : (categoryCounts[cat.name] || 0);
-                return (
+          <motion.div
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.3 }}
+            className="hidden md:block w-52 flex-shrink-0 sticky top-6 h-fit space-y-4"
+          >
+            {/* Folders Section */}
+            <div className="bg-gradient-to-br from-card to-card/80 rounded-3xl p-6 shadow-sm backdrop-blur-sm border border-border/30">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="font-bold text-base text-foreground">Folders</h2>
+                {isEditor && (
                   <motion.button
-                    key={cat.name}
-                    initial={{ opacity: 0, x: -20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: idx * 0.05, duration: 0.3 }}
+                    whileHover={{ scale: 1.1 }}
+                    whileTap={{ scale: 0.95 }}
+                    onClick={() => setShowNewFolder(true)}
+                    className="p-1.5 rounded-lg hover:bg-primary/10 text-primary transition-colors"
+                    title="New folder"
+                  >
+                    <FolderPlus className="w-4 h-4" />
+                  </motion.button>
+                )}
+              </div>
+
+              <motion.button
+                whileHover={{ x: 4 }}
+                onClick={() => setActiveFolder(null)}
+                className={cn(
+                  "w-full text-left px-4 py-2.5 rounded-2xl text-sm font-medium transition-all duration-300 mb-1",
+                  activeFolder === null
+                    ? "bg-primary text-primary-foreground shadow-lg shadow-primary/30"
+                    : "text-muted-foreground hover:bg-secondary/60 hover:text-foreground"
+                )}
+              >
+                All Files
+              </motion.button>
+
+              {folders.map((folder) => (
+                <FileContextMenu
+                  key={folder.id}
+                  resource={{ id: folder.id, name: folder.name, type: "folder" }}
+                  isEditor={isEditor}
+                  actions={{
+                    onOpen: () => setActiveFolder(activeFolder === folder.id ? null : folder.id),
+                    onShare: () => setShareFolder({ id: folder.id, name: folder.name }),
+                    onChat: () => navigate(`/chat?userFolderId=${folder.id}`),
+                    onRename: () => { setRenamingFolder(folder.id); setRenameValue(folder.name); },
+                    onDelete: () => handleDeleteFolder(folder.id),
+                  }}
+                >
+                  <motion.div
+                    role="button"
                     whileHover={{ x: 4 }}
-                    onClick={() => setSelectedCategory(cat.name)}
+                    onDragOver={(e: React.DragEvent) => { e.preventDefault(); setDragOverFolder(folder.id); }}
+                    onDragLeave={() => setDragOverFolder(null)}
+                    onDrop={(e: React.DragEvent) => {
+                      e.preventDefault();
+                      setDragOverFolder(null);
+                      const fileId = e.dataTransfer.getData("text/plain");
+                      if (fileId) handleAddFileToFolder(folder.id, fileId, folder.name);
+                    }}
+                    onClick={() => setActiveFolder(activeFolder === folder.id ? null : folder.id)}
                     className={cn(
-                      "w-full text-left px-4 py-2.5 rounded-2xl text-sm font-medium transition-all duration-300",
-                      selectedCategory === cat.name
-                        ? "bg-primary text-primary-foreground shadow-lg shadow-primary/30 scale-105"
-                        : "text-muted-foreground hover:bg-secondary/60 hover:text-foreground hover:shadow-md"
+                      "w-full text-left px-4 py-2.5 rounded-2xl text-sm font-medium transition-all duration-300 flex items-center gap-2 cursor-pointer",
+                      activeFolder === folder.id
+                        ? "bg-primary text-primary-foreground shadow-lg shadow-primary/30"
+                        : dragOverFolder === folder.id
+                          ? "bg-accent/20 border-2 border-dashed border-accent text-accent"
+                          : "text-muted-foreground hover:bg-secondary/60 hover:text-foreground"
                     )}
                   >
-                    <div className="flex items-center justify-between">
-                      <span className="flex items-center gap-2">
-                        <span>{cat.icon}</span>
-                        <span>{cat.label}</span>
-                      </span>
-                      <span className={cn("text-xs font-semibold px-2 py-0.5 rounded-lg", selectedCategory === cat.name ? "bg-primary-foreground/20" : "bg-muted/50")}>
-                        {count}
+                    <Folder className="w-3.5 h-3.5 shrink-0" />
+                    <span className="truncate flex-1">{folder.name}</span>
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={(e) => { e.stopPropagation(); navigate(`/chat?userFolderId=${folder.id}`); }}
+                        title="Chat with folder"
+                        className={cn(
+                          "p-1 rounded-md transition-colors",
+                          activeFolder === folder.id ? "hover:bg-primary-foreground/20" : "hover:bg-primary/10 text-muted-foreground hover:text-primary"
+                        )}
+                      >
+                        <MessageCircle className="w-3 h-3" />
+                      </button>
+                      <span className={cn("text-xs px-1.5 rounded-lg", activeFolder === folder.id ? "bg-primary-foreground/20" : "bg-muted/50")}>
+                        {folder.fileIds.length}
                       </span>
                     </div>
-                  </motion.button>
-                );
-              })}
+                  </motion.div>
+                </FileContextMenu>
+              ))}
+
+              {folders.length === 0 && (
+                <p className="text-xs text-muted-foreground/60 text-center py-2">Create folders to organize files</p>
+              )}
             </div>
-          </div>
-        </motion.div>
+
+            {/* Categories */}
+            <div className="bg-gradient-to-br from-card to-card/80 rounded-3xl p-6 shadow-sm backdrop-blur-sm border border-border/30">
+              <h2 className="font-bold text-base mb-5 text-foreground">Categories</h2>
+              <div className="space-y-2.5">
+                {visibleCategories.map((cat, idx) => {
+                  const count = cat.name === "all"
+                    ? (files || []).length
+                    : (categoryCounts[cat.name] || 0);
+                  return (
+                    <motion.button
+                      key={cat.name}
+                      initial={{ opacity: 0, x: -20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: idx * 0.05, duration: 0.3 }}
+                      whileHover={{ x: 4 }}
+                      onClick={() => setSelectedCategory(cat.name)}
+                      className={cn(
+                        "w-full text-left px-4 py-2.5 rounded-2xl text-sm font-medium transition-all duration-300",
+                        selectedCategory === cat.name
+                          ? "bg-primary text-primary-foreground shadow-lg shadow-primary/30 scale-105"
+                          : "text-muted-foreground hover:bg-secondary/60 hover:text-foreground hover:shadow-md"
+                      )}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="flex items-center gap-2">
+                          <span>{cat.icon}</span>
+                          <span>{cat.label}</span>
+                        </span>
+                        <span className={cn("text-xs font-semibold px-2 py-0.5 rounded-lg", selectedCategory === cat.name ? "bg-primary-foreground/20" : "bg-muted/50")}>
+                          {count}
+                        </span>
+                      </div>
+                    </motion.button>
+                  );
+                })}
+              </div>
+            </div>
+          </motion.div>
         )}
 
         {/* Mobile: Horizontal folder/category scroller */}
@@ -686,6 +712,15 @@ const FilesPage = () => {
                 transition={{ delay: 0.2, duration: 0.4 }}
                 className="flex items-center gap-2 sm:gap-3 w-full sm:w-auto"
               >
+                <Button
+                  onClick={handleUploadClick}
+                  variant="default"
+                  size="sm"
+                  className="rounded-xl gap-2 h-10 bg-indigo-600 hover:bg-indigo-700 shadow-lg shadow-indigo-200 hidden sm:flex"
+                >
+                  <Upload className="w-4 h-4" />
+                  Upload
+                </Button>
                 {activeFolder && (
                   <Button
                     variant="outline"
@@ -704,14 +739,6 @@ const FilesPage = () => {
                 >
                   {sidebarCollapsed ? <PanelLeft className="w-4 h-4" /> : <PanelLeftClose className="w-4 h-4" />}
                 </button>
-                <div className="relative flex-1 sm:flex-none min-w-0">
-                  <Input
-                    placeholder="Search files..."
-                    value={filter}
-                    onChange={(e) => setFilter(e.target.value)}
-                    className="w-full sm:w-64 h-10 bg-secondary/50 border-border/40 rounded-2xl pl-4 text-sm placeholder:text-muted-foreground/60 focus:bg-secondary focus:border-primary/50 transition-all"
-                  />
-                </div>
                 <div className="flex items-center gap-2 p-1.5 rounded-2xl bg-secondary/40 border border-border/30 backdrop-blur-sm">
                   <motion.button
                     whileHover={{ scale: 1.05 }}
@@ -743,33 +770,78 @@ const FilesPage = () => {
               </motion.div>
             </motion.div>
 
-            {isLoading ? (
-              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex items-center justify-center py-24">
-                <motion.div animate={{ rotate: 360 }} transition={{ duration: 2, repeat: Infinity, ease: "linear" }}>
-                  <Loader2 className="w-8 h-8 text-primary" />
+            {/* FOLDERS SECTION */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
+              {[
+                { id: "upload", label: "Uploads", color: "bg-gradient-to-br from-blue-50 to-white border-gray-200 shadow-sm hover:shadow-md", activeBg: "bg-gradient-to-br from-blue-100 to-blue-50 border-blue-200 ring-2 ring-blue-500 shadow-md", iconColor: "text-blue-600 bg-blue-100", Icon: Upload },
+                { id: "community", label: "Community", color: "bg-gradient-to-br from-purple-50 to-white border-gray-200 shadow-sm hover:shadow-md", activeBg: "bg-gradient-to-br from-purple-100 to-purple-50 border-purple-200 ring-2 ring-purple-500 shadow-md", iconColor: "text-purple-600 bg-purple-100", Icon: Globe },
+                { id: "drive", label: "Drive", color: "bg-gradient-to-br from-orange-50 to-white border-gray-200 shadow-sm hover:shadow-md", activeBg: "bg-gradient-to-br from-orange-100 to-orange-50 border-orange-200 ring-2 ring-orange-500 shadow-md", iconColor: "text-orange-600 bg-orange-100", Icon: HardDrive },
+              ].map((folder) => {
+                const isActive = activeSourceFolder === folder.id;
+                const fileCount = (files || []).filter(f => {
+                  const source = (f as any).source || (f.file_url?.includes('drive') ? 'drive' : 'upload');
+                  return source === folder.id;
+                }).length;
+
+                return (
+                  <motion.div
+                    key={folder.id}
+                    onClick={() => setActiveSourceFolder(folder.id)}
+                    className={cn(
+                      "min-h-[110px] p-6 rounded-2xl border transition-all duration-300 ease-out cursor-pointer flex flex-col justify-between relative overflow-hidden",
+                      "hover:scale-[1.02] active:scale-[0.98]",
+                      isActive ? folder.activeBg : folder.color
+                    )}
+                  >
+                    <div className="flex items-start justify-between w-full">
+                      <div className={cn("w-12 h-12 rounded-2xl flex items-center justify-center transition-colors shadow-sm", folder.iconColor)}>
+                        <folder.Icon className="w-6 h-6" />
+                      </div>
+                      <span className="text-sm font-semibold text-gray-600 bg-white/60 shadow-sm px-3 py-1 rounded-xl backdrop-blur-sm border border-gray-100">
+                        {fileCount} {fileCount === 1 ? 'file' : 'files'}
+                      </span>
+                    </div>
+                    <span className="font-bold text-gray-900 text-lg mt-4">{folder.label}</span>
+                  </motion.div>
+                );
+              })}
+            </div>
+
+            <AnimatePresence mode="wait">
+              {isLoading ? (
+                <motion.div key="loading" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex items-center justify-center py-24">
+                  <motion.div animate={{ rotate: 360 }} transition={{ duration: 2, repeat: Infinity, ease: "linear" }}>
+                    <Loader2 className="w-8 h-8 text-primary" />
+                  </motion.div>
                 </motion.div>
-              </motion.div>
-            ) : filtered.length === 0 ? (
-              <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="text-center py-24">
-                <div className="text-muted-foreground">
-                  <Loader2 className="w-12 h-12 opacity-20 mx-auto mb-4" />
-                  <p className="text-lg">No files found</p>
-                  <p className="text-sm opacity-70">Try adjusting your filters or upload some files</p>
-                </div>
-              </motion.div>
-            ) : (
-              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-                {view === "grid" ? (
-                  <motion.div layout className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-                    {filtered.map((file, i) => renderFileCard(file, i))}
-                  </motion.div>
-                ) : (
-                  <motion.div layout className="space-y-3">
-                    {filtered.map((file, i) => renderFileRow(file, i))}
-                  </motion.div>
-                )}
-              </motion.div>
-            )}
+              ) : activeSourceFolder === "all" ? (
+                <motion.div key="empty-select" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.3, ease: "easeOut" }} className="flex flex-col items-center justify-center py-20 bg-secondary/20 rounded-[2rem] border border-dashed border-border/60 transition-all duration-300">
+                  <Folder className="w-12 h-12 text-muted-foreground/30 mb-4" />
+                  <p className="text-lg font-semibold text-foreground">Select a folder to view files</p>
+                  <p className="text-sm text-muted-foreground mt-1 text-center">Centered safely, soft empty state</p>
+                </motion.div>
+              ) : filtered.length === 0 ? (
+                <motion.div key="empty-files" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.3, ease: "easeOut" }} className="text-center py-24">
+                  <div className="text-muted-foreground">
+                    <Loader2 className="w-12 h-12 opacity-20 mx-auto mb-4" />
+                    <p className="text-lg">No files found</p>
+                    <p className="text-sm opacity-70">Try adjusting your filters or upload some files</p>
+                  </div>
+                </motion.div>
+              ) : (
+                <motion.div key={activeSourceFolder} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.3, ease: "easeOut" }}>
+                  {view === "grid" ? (
+                    <motion.div layout className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+                      {filtered.map((file, i) => renderFileCard(file, i))}
+                    </motion.div>
+                  ) : (
+                    <motion.div layout className="space-y-3">
+                      {filtered.map((file, i) => renderFileRow(file, i))}
+                    </motion.div>
+                  )}
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
         </motion.div>
       </div>
@@ -842,24 +914,30 @@ const FilesPage = () => {
       </Dialog>
 
       {/* Share Dialogs */}
-      {shareFile && (
-        <ShareDialog
-          open={!!shareFile}
-          onOpenChange={(open) => { if (!open) setShareFile(null); }}
-          resourceId={shareFile.id}
-          resourceName={shareFile.name}
-          resourceType="file"
-        />
-      )}
+      {(shareFile || shareFolder) && (
+        <>
+          <ShareDialog
+            open={!!shareFile || !!shareFolder}
+            onOpenChange={(open) => {
+              if (!open) {
+                setShareFile(null);
+                setShareFolder(null);
+                setShowCommunityShare(false);
+              }
+            }}
+            resourceId={shareFile?.id || shareFolder?.id || ""}
+            resourceName={shareFile?.name || shareFolder?.name || ""}
+            resourceType={shareFile ? "file" : "folder"}
+          />
 
-      {shareFolder && (
-        <ShareDialog
-          open={!!shareFolder}
-          onOpenChange={(open) => { if (!open) setShareFolder(null); }}
-          resourceId={shareFolder.id}
-          resourceName={shareFolder.name}
-          resourceType="folder"
-        />
+          <CommunityShareModal
+            open={showCommunityShare}
+            onOpenChange={setShowCommunityShare}
+            resourceId={shareFile?.id || shareFolder?.id || ""}
+            resourceName={shareFile?.name || shareFolder?.name || ""}
+            resourceType={shareFile ? "file" : "folder"}
+          />
+        </>
       )}
     </AppLayout>
   );

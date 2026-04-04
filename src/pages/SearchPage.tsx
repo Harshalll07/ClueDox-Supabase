@@ -239,13 +239,14 @@ const SearchPage = () => {
 
   return (
     <AppLayout>
-      <div className="max-w-5xl mx-auto py-6">
+      <div className="bg-[#F7F7F5] dark:bg-[#0B0B0C] text-gray-900 dark:text-gray-100 min-h-screen transition-colors duration-300">
+        <div className="max-w-5xl mx-auto py-6 px-4">
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="mb-6">
           <div className="flex items-center justify-between flex-wrap gap-3">
             <div>
               <h1 className="text-3xl font-bold text-foreground" style={{ fontFamily: "'Playfair Display', serif" }}>Smart Search</h1>
               <p className="text-muted-foreground text-sm mt-2">
-                AI-powered hybrid search with intent detection & confidence scoring
+                AI-powered multilingual hybrid search with vector similarity
               </p>
             </div>
             <div className="flex gap-2 flex-wrap justify-end">
@@ -264,6 +265,18 @@ const SearchPage = () => {
                 <SlidersHorizontal className="w-4 h-4" />
                 Filters
               </button>
+            </div>
+          </div>
+          
+          <div className="mt-4 flex items-center gap-3 bg-primary/5 dark:bg-primary/10 border border-primary/20 rounded-2xl p-4 shadow-sm">
+            <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center animate-pulse">
+              <Sparkles className="w-5 h-5 text-primary" />
+            </div>
+            <div className="flex-1">
+              <h3 className="text-sm font-bold text-foreground flex items-center gap-2">
+                Multilingual AI search 🌍
+              </h3>
+              <p className="text-xs text-muted-foreground">Find any file using natural language, concept meanings, or Hindi/Marathi queries.</p>
             </div>
           </div>
         </motion.div>
@@ -292,9 +305,9 @@ const SearchPage = () => {
               </div>
             )}
             {hybridLoading && (
-              <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              <div className="flex items-center gap-1.5 text-xs text-primary font-bold animate-pulse">
                 <Loader2 className="w-3 h-3 animate-spin" />
-                <span>AI hybrid search running...</span>
+                <span>AI is thinking & translating...</span>
               </div>
             )}
             {reanalyzeProgress && (
@@ -337,9 +350,17 @@ const SearchPage = () => {
                 </p>
 
                 {hybridLoading && totalResults === 0 && (
-                  <div className="text-center py-16">
-                    <Loader2 className="w-8 h-8 animate-spin text-primary mx-auto mb-3" />
-                    <p className="text-muted-foreground text-sm">Running AI hybrid search pipeline...</p>
+                  <div className="space-y-4">
+                    {[1, 2, 3].map((i) => (
+                      <div key={i} className="h-24 w-full bg-secondary/50 rounded-2xl animate-pulse flex items-center px-6 gap-4">
+                        <div className="w-12 h-12 rounded-xl bg-secondary/80" />
+                        <div className="flex-1 space-y-2">
+                          <div className="h-4 w-1/3 bg-secondary/80 rounded" />
+                          <div className="h-3 w-1/2 bg-secondary/80 rounded" />
+                        </div>
+                      </div>
+                    ))}
+                    <p className="text-center text-muted-foreground text-xs mt-4 animate-pulse italic">Thinking in multilingual embeddings...</p>
                   </div>
                 )}
 
@@ -451,7 +472,7 @@ const SearchPage = () => {
                     <Sparkles className="w-10 h-10 text-primary/30 mx-auto mb-4" />
                     <p className="text-foreground font-medium mb-1">Search your documents</p>
                     <p className="text-muted-foreground text-sm mb-6 max-w-md mx-auto">
-                      Type anything — a name, date, amount, tag, or even describe what you're looking for in plain language
+                      {"Type anything — a name, date, amount, tag, or even describe what you're looking for in plain language"}
                     </p>
                     <div className="flex flex-wrap justify-center gap-2">
                       {["passport", "invoice 2024", "GST return", "insurance policy", "Aadhaar card"].map(term => (
@@ -472,6 +493,7 @@ const SearchPage = () => {
           <AnimatePresence>
             {selectedFile && <FileDetailPanel file={selectedFile} onClose={() => setSelectedFile(null)} onTagClick={(tag) => { setQuery(tag); setSelectedFile(null); }} />}
           </AnimatePresence>
+        </div>
         </div>
       </div>
     </AppLayout>

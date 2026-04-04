@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useCallback } from "react";
+import React, { createContext, useContext, useState, useCallback, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { createNotification } from "@/hooks/useNotifications";
 import { toast } from "sonner";
@@ -32,7 +32,22 @@ const PLAN_LIMITS: Record<string, number> = {
 
 export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     const [uploads, setUploads] = useState<UploadItem[]>([]);
-    const [isExpanded, setIsExpanded] = useState(true);
+    const [isExpanded, setIsExpanded] = useState<boolean>(() => {
+        const saved = localStorage.getItem("uploadPanelOpen");
+        return saved !== null ? saved === "true" : true;
+    });
+
+    // Persist state to localStorage
+    useEffect(() => {
+        localStorage.setItem("uploadPanelOpen", isExpanded.toString());
+    }, [isExpanded]);
+
+    // Auto-open if uploads exist
+    useEffect(() => {
+        if (uploads.length > 0) {
+            setIsExpanded(true);
+        }
+    }, [uploads.length]);
 
     const updateUpload = useCallback((id: string, updates: Partial<UploadItem>) => {
         setUploads((prev) => prev.map((u) => (u.id === id ? { ...u, ...updates } : u)));

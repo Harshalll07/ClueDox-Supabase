@@ -170,17 +170,20 @@ const WhatsAppPage = () => {
 
   return (
     <AppLayout>
-      <div className="max-w-2xl mx-auto">
+      <div className="bg-[#F7F7F5] dark:bg-[#0B0B0C] text-gray-900 dark:text-gray-100 min-h-screen transition-colors duration-300">
+        <div className="max-w-2xl mx-auto py-8 px-4">
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
           <h1 className="text-2xl sm:text-3xl font-bold mb-1">Cluedox Integration</h1>
           <p className="text-muted-foreground text-sm mb-8">Link your WhatsApp numbers to search & upload files via chat</p>
         </motion.div>
 
         {checkLoading ? (
-          <div className="flex items-center gap-2 text-muted-foreground text-sm p-6">
-            <Loader2 className="w-4 h-4 animate-spin" />
-            Checking linked numbers...
+        <div className="bg-[#F7F7F5] dark:bg-[#0B0B0C] text-gray-900 dark:text-gray-100 min-h-screen transition-colors duration-300">
+          <div className="flex items-center justify-center min-h-[40vh] gap-3 text-muted-foreground text-sm p-6">
+            <Loader2 className="w-4 h-4 animate-spin text-primary" />
+            <span>Checking linked numbers...</span>
           </div>
+        </div>
         ) : (
           <div className="space-y-4">
             {/* Linked numbers */}
@@ -318,6 +321,7 @@ const WhatsAppPage = () => {
             </motion.div>
           </div>
         )}
+        </div>
       </div>
     </AppLayout>
   );

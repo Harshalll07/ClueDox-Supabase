@@ -108,6 +108,15 @@ export default {
           from: { opacity: "0" },
           to: { opacity: "1" },
         },
+        "pulse-subtle": {
+          "0%, 100%": { transform: "scale(1)", opacity: "1" },
+          "50%": { transform: "scale(1.05)", opacity: "0.9" },
+        },
+        "pulse-dot": {
+          "0%": { transform: "scale(1)", opacity: "1" },
+          "50%": { transform: "scale(1.5)", opacity: "0" },
+          "100%": { transform: "scale(1)", opacity: "1" },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
@@ -115,8 +124,10 @@ export default {
         "pulse-glow": "pulse-glow 2s ease-in-out infinite",
         "slide-up": "slide-up 0.5s ease-out",
         "fade-in": "fade-in 0.3s ease-out",
+        "pulse-subtle": "pulse-subtle 3s ease-in-out infinite",
+        "pulse-dot": "pulse-dot 2s ease-in-out infinite",
       },
     },
   },
-  plugins: [require("tailwindcss-animate")],
+  plugins: [require("tailwindcss-animate"), require("@tailwindcss/typography")],
 } satisfies Config;

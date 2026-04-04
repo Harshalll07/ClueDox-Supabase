@@ -467,7 +467,8 @@ const FilesPage = () => {
 
   return (
     <AppLayout>
-      <div className="max-w-7xl mx-auto flex flex-col md:flex-row gap-4 md:gap-8 py-6">
+      <div className="bg-[#F7F7F5] dark:bg-[#0B0B0C] text-gray-900 dark:text-gray-100 min-h-screen transition-colors duration-300">
+        <div className="max-w-7xl mx-auto flex flex-col md:flex-row gap-4 md:gap-8 py-6 px-4">
         {/* Left Sidebar - Folders & Categories */}
         {!sidebarCollapsed && (
           <motion.div
@@ -939,6 +940,7 @@ const FilesPage = () => {
           />
         </>
       )}
+      </div>
     </AppLayout>
   );
 };

@@ -90,7 +90,7 @@ export function NotificationBell() {
         <button
           className={cn(
             "relative p-2 rounded-xl transition-all duration-300",
-            unread > 0 ? "text-gray-900 bg-white shadow-sm border border-gray-100" : "text-gray-500 hover:bg-gray-100"
+            unread > 0 ? "text-foreground bg-card shadow-sm border border-border" : "text-muted-foreground hover:bg-accent"
           )}
           aria-label="Notifications"
         >
@@ -101,7 +101,7 @@ export function NotificationBell() {
                 initial={{ scale: 0 }}
                 animate={{ scale: 1 }}
                 exit={{ scale: 0 }}
-                className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center border-2 border-[#FAFAFC] shadow-sm"
+                className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center border-2 border-background shadow-sm"
               >
                 {unread > 9 ? "9+" : unread}
               </motion.span>
@@ -110,13 +110,13 @@ export function NotificationBell() {
         </button>
       </PopoverTrigger>
 
-      <PopoverContent className="w-[380px] p-0 bg-white/95 backdrop-blur-xl border border-gray-100 shadow-2xl rounded-2xl overflow-hidden" align="end">
+      <PopoverContent className="w-[380px] p-0 bg-card/95 backdrop-blur-xl border border-border shadow-2xl rounded-3xl overflow-hidden" align="end">
         {/* HEADER */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-50 bg-white/50">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-border/50 bg-card/50">
           <div className="flex items-center gap-2">
-            <h4 className="text-sm font-bold text-gray-900 tracking-tight">Inbox</h4>
+            <h4 className="text-sm font-bold text-foreground tracking-tight">Inbox</h4>
             {unread > 0 && (
-              <span className="px-2 py-0.5 rounded-full bg-red-50 text-red-600 text-[10px] font-bold uppercase tracking-wider">
+              <span className="px-2 py-0.5 rounded-full bg-red-500/10 text-red-500 text-[10px] font-bold uppercase tracking-wider">
                 {unread} New
               </span>
             )}
@@ -124,7 +124,7 @@ export function NotificationBell() {
           {unread > 0 && (
             <button
               onClick={() => markAllRead.mutate()}
-              className="text-xs font-bold text-indigo-600 hover:text-indigo-700 flex items-center gap-1.5 transition-colors group"
+              className="text-xs font-bold text-primary hover:text-primary/80 flex items-center gap-1.5 transition-colors group"
             >
               <CheckCheck className="w-3.5 h-3.5 group-hover:scale-110 transition-transform" />
               Mark all read
@@ -138,10 +138,10 @@ export function NotificationBell() {
             <div className="p-6 space-y-4">
               {[1, 2, 3].map(i => (
                 <div key={i} className="flex gap-4 animate-pulse">
-                  <div className="w-10 h-10 bg-gray-100 rounded-xl" />
+                  <div className="w-10 h-10 bg-muted rounded-xl" />
                   <div className="flex-1 space-y-2 py-1">
-                    <div className="h-2.5 bg-gray-100 rounded w-1/3" />
-                    <div className="h-3 bg-gray-100 rounded w-full" />
+                    <div className="h-2.5 bg-muted rounded w-1/3" />
+                    <div className="h-3 bg-muted rounded w-full" />
                   </div>
                 </div>
               ))}
@@ -149,7 +149,7 @@ export function NotificationBell() {
           ) : Object.keys(grouped).length > 0 ? (
             Object.entries(grouped).map(([group, filteredNotifications]) => (
               <div key={group} className="mb-4">
-                <p className="px-5 py-2 text-[10px] font-bold text-gray-400 uppercase tracking-widest">{group}</p>
+                <p className="px-5 py-2 text-[10px] font-bold text-muted-foreground uppercase tracking-widest">{group}</p>
                 <div className="space-y-0.5">
                   {filteredNotifications.map((n) => {
                     const style = typeStyles[n.type] || typeStyles.default;
@@ -167,13 +167,13 @@ export function NotificationBell() {
                         className={cn(
                           "w-full flex items-start gap-4 px-5 py-4 text-left transition-all relative group",
                           !n.is_read
-                            ? "bg-indigo-50/10 hover:bg-indigo-50/20"
-                            : "hover:bg-gray-50"
+                            ? "bg-primary/5 hover:bg-primary/10"
+                            : "hover:bg-accent/40"
                         )}
                       >
                         {/* UNREAD INDICATOR */}
                         {!n.is_read && (
-                          <div className="absolute left-1.5 top-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full bg-indigo-500 shadow-sm" />
+                          <div className="absolute left-1.5 top-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full bg-primary shadow-sm" />
                         )}
 
                         {/* ICON */}
@@ -188,14 +188,14 @@ export function NotificationBell() {
                         <div className="flex-1 min-w-0 pr-2">
                           <p className={cn(
                             "text-sm font-semibold leading-tight",
-                            !n.is_read ? "text-gray-900" : "text-gray-600"
+                            !n.is_read ? "text-foreground" : "text-muted-foreground"
                           )}>
                             {n.title}
                           </p>
-                          <p className="text-xs text-gray-500 mt-1 line-clamp-2 leading-relaxed">
+                          <p className="text-xs text-muted-foreground mt-1 line-clamp-2 leading-relaxed">
                             {n.description}
                           </p>
-                          <p className="text-[10px] font-bold text-gray-400 mt-2 uppercase tracking-tight">
+                          <p className="text-[10px] font-bold text-muted-foreground mt-2 uppercase tracking-tight">
                             {format(parseISO(n.created_at), "h:mm a")}
                           </p>
                         </div>
@@ -207,11 +207,11 @@ export function NotificationBell() {
             ))
           ) : (
             <div className="py-24 text-center px-8">
-              <div className="w-16 h-16 bg-gray-50 rounded-[28px] flex items-center justify-center mx-auto mb-4">
-                <Bell className="w-7 h-7 text-gray-200" />
+              <div className="w-16 h-16 bg-muted rounded-[28px] flex items-center justify-center mx-auto mb-4">
+                <Bell className="w-7 h-7 text-muted-foreground mx-auto" />
               </div>
-              <p className="text-gray-900 font-bold">Inbox is empty</p>
-              <p className="text-xs text-gray-400 mt-1.5 leading-relaxed">
+              <p className="text-foreground font-bold">Inbox is empty</p>
+              <p className="text-xs text-muted-foreground mt-1.5 leading-relaxed">
                 When you get community invites or shared files, they'll pop up here.
               </p>
             </div>

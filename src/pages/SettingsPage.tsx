@@ -157,16 +157,21 @@ const SettingsPage = () => {
   if (loading) {
     return (
       <AppLayout>
-        <div className="flex items-center justify-center min-h-[60vh]">
-          <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      <div className="bg-[#F7F7F5] dark:bg-[#0B0B0C] text-gray-900 dark:text-gray-100 min-h-screen transition-colors duration-300">
+        <div className="max-w-5xl mx-auto w-full px-6 py-4 flex-1 flex flex-col min-h-0">
+          <div className="flex items-center justify-center min-h-[60vh]">
+            <Loader2 className="w-8 h-8 animate-spin text-primary" />
+          </div>
         </div>
+      </div>
       </AppLayout>
     );
   }
 
   return (
     <AppLayout>
-      <div className="max-w-2xl mx-auto space-y-6">
+      <div className="bg-[#F7F7F5] dark:bg-[#0B0B0C] text-gray-900 dark:text-gray-100 min-h-screen transition-colors duration-300">
+        <div className="max-w-2xl mx-auto space-y-6 py-8 px-4">
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
           <h1 className="text-2xl sm:text-3xl font-bold mb-1">Settings</h1>
           <p className="text-muted-foreground text-sm mb-8">Manage your account and preferences</p>
@@ -313,6 +318,7 @@ const SettingsPage = () => {
             Sign Out
           </Button>
         </motion.div>
+        </div>
       </div>
     </AppLayout>
   );

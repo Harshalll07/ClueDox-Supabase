@@ -36,13 +36,13 @@ const AppLayout = ({ children }: { children: ReactNode }) => {
 
 
   return (
-    <div className="flex h-screen w-full bg-[#FAFAFC] text-gray-900 overflow-visible font-sans selection:bg-indigo-100 selection:text-indigo-900">
+    <div className="flex h-screen w-full bg-background text-foreground overflow-visible font-sans selection:bg-indigo-100 selection:text-indigo-900 transition-colors duration-300">
 
       {/* SIDEBAR */}
       {!isMobile && (
         <div
           className={cn(
-            "fixed top-0 left-0 h-screen z-50 bg-white/80 backdrop-blur-xl border-r border-gray-200/60 shadow-[2px_0_10px_rgba(0,0,0,0.02)]",
+            "fixed top-0 left-0 h-screen z-50 bg-card/80 backdrop-blur-xl border-r border-border/60 shadow-[2px_0_10px_rgba(0,0,0,0.02)]",
             "transition-all duration-300 ease-in-out",
             collapsed ? "w-[76px]" : "w-64"
           )}
@@ -61,14 +61,14 @@ const AppLayout = ({ children }: { children: ReactNode }) => {
         {/* TOPBAR */}
         <div
           className={cn(
-            "sticky top-0 z-40 h-16 flex items-center justify-between px-6 transition-all duration-200 border-b bg-white/80 backdrop-blur-xl",
-            scrolled ? "border-gray-200/60 shadow-sm" : "border-transparent shadow-none"
+            "sticky top-0 z-40 h-16 flex items-center justify-between px-6 transition-all duration-200 border-b bg-background/80 backdrop-blur-xl",
+            scrolled ? "border-border/60 shadow-sm" : "border-transparent shadow-none"
           )}
         >
           {/* LEFT — MENU */}
           <button
             onClick={() => setCollapsed(!collapsed)}
-            className="p-2 rounded-xl text-gray-500 hover:bg-white/60 hover:text-gray-900 transition-all duration-200 active:scale-[0.96] border border-transparent hover:border-gray-200/50"
+            className="p-2 rounded-xl text-muted-foreground hover:bg-accent hover:text-foreground transition-all duration-200 active:scale-[0.96] border border-transparent hover:border-border/50"
           >
             <Menu className="w-5 h-5" />
           </button>
@@ -81,19 +81,19 @@ const AppLayout = ({ children }: { children: ReactNode }) => {
                 w-full max-w-xl group
                 flex items-center gap-3 px-5 py-2.5
                 rounded-2xl
-                border border-gray-200/60
-                bg-gray-50/40
-                hover:bg-white
+                border border-border/60
+                bg-muted/40
+                hover:bg-card
                 hover:shadow-xl hover:shadow-purple-500/5
                 hover:scale-[1.01]
                 hover:border-purple-200/50
                 transition-all duration-300 ease-out
-                text-gray-400
+                text-muted-foreground
               "
             >
               <Search className="w-4 h-4 group-hover:text-purple-500 transition-colors" />
-              <span className="text-sm font-medium flex-1 text-left">Describe your file, we'll find it...</span>
-              <div className="flex items-center gap-1 px-1.5 py-0.5 rounded border border-gray-200 bg-white text-[10px] font-bold text-gray-400">
+              <span className="text-sm font-medium flex-1 text-left truncate pr-4 text-muted-foreground group-hover:text-foreground">Search in any language (Hindi, English, Marathi...)</span>
+              <div className="flex items-center gap-1 px-1.5 py-0.5 rounded border border-border bg-background text-[10px] font-bold text-muted-foreground">
                 {isMobile ? "Search" : (navigator.platform.toUpperCase().indexOf('MAC') >= 0 ? "⌘K" : "Ctrl+K")}
               </div>
             </button>
@@ -101,7 +101,7 @@ const AppLayout = ({ children }: { children: ReactNode }) => {
 
           {/* RIGHT — NOTIFICATIONS */}
           <div className="flex items-center gap-3">
-            <button className="md:hidden p-2 rounded-xl text-gray-500 hover:bg-gray-100">
+            <button className="md:hidden p-2 rounded-xl text-muted-foreground hover:bg-accent transition-colors">
               <Search className="w-5 h-5" />
             </button>
             <NotificationBell />
@@ -130,4 +130,4 @@ const AppLayout = ({ children }: { children: ReactNode }) => {
   );
 };
 
-export default AppLayout;
+export default AppLayout

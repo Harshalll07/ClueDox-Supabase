@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
     Search, FileText, Globe, Folder, Plus, Upload,
     Settings, User, MessageCircle, X, ChevronRight,
-    TrendingUp, Clock, Terminal, CreditCard
+    TrendingUp, Clock, Terminal, CreditCard, Sparkles
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useFiles, FileWithTags } from "@/hooks/useFiles";
@@ -11,6 +11,7 @@ import { useTeams, Team } from "@/hooks/useTeams";
 import { useFolders, UserFolder } from "@/hooks/useFolders";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@/lib/utils";
+import { supabase } from "@/integrations/supabase/client";
 
 interface CommandItem {
     id: string;
@@ -28,7 +29,10 @@ export const CommandPalette = () => {
     const [isOpen, setIsOpen] = useState(false);
     const [query, setQuery] = useState("");
     const [selectedIndex, setSelectedIndex] = useState(0);
+    const [semanticResults, setSemanticResults] = useState<any[]>([]);
+    const [isSemanticLoading, setIsSemanticLoading] = useState(false);
     const scrollContainerRef = useRef<HTMLDivElement>(null);
+    const searchTimerRef = useRef<number>();
 
     const navigate = useNavigate();
     const { data: files, isLoading: isLoadingFiles } = useFiles();
@@ -59,6 +63,31 @@ export const CommandPalette = () => {
         };
     }, []);
 
+    // 2. Debounced Semantic Search
+    useEffect(() => {
+        if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
+        if (query.trim().length >= 3) {
+            searchTimerRef.current = window.setTimeout(async () => {
+                setIsSemanticLoading(true);
+                try {
+                    const { data, error } = await supabase.functions.invoke("hybrid-search", {
+                        body: { query },
+                    });
+                    if (!error && data?.results) {
+                        setSemanticResults(data.results.slice(0, 3));
+                    }
+                } catch (e) {
+                    console.error("Palette semantic search error:", e);
+                } finally {
+                    setIsSemanticLoading(false);
+                }
+            }, 600);
+        } else {
+            setSemanticResults([]);
+        }
+        return () => { if (searchTimerRef.current) clearTimeout(searchTimerRef.current); };
+    }, [query]);
+
     // Reset index on query change
     useEffect(() => {
         setSelectedIndex(0);
@@ -87,6 +116,17 @@ export const CommandPalette = () => {
                 color: "text-blue-500 bg-blue-50",
                 action: () => { navigate("/files"); close(); } // In real app, might open specific file preview
             }));
+
+        // 1.5 Semantic AI Results
+        const aiResults = semanticResults.map(f => ({
+            id: `ai-${f.id}`,
+            title: f.file_name,
+            subtitle: "AI Match · Semantic",
+            icon: Sparkles,
+            section: "AI Semantic Search",
+            color: "text-indigo-600 bg-indigo-50/50",
+            action: () => { navigate(`/files?q=${query}`); close(); }
+        }));
 
         // 2. Communities
         const communityResults = (teams || [])
@@ -117,7 +157,7 @@ export const CommandPalette = () => {
             }));
 
         if (query) {
-            return [...fileResults, ...communityResults, ...folderResults];
+            return [...aiResults, ...fileResults, ...communityResults, ...folderResults];
         }
 
         // Default "Never Empty" State Suggestions
@@ -226,11 +266,11 @@ export const CommandPalette = () => {
               "
                         >
                             {/* Search Header */}
-                            <div className="flex items-center px-6 py-5 border-b border-gray-100">
-                                <Search className="w-5 h-5 text-gray-400 mr-4" />
+                             <div className="flex items-center px-6 py-5 border-b border-gray-100">
+                                <Search className={cn("w-5 h-5 mr-4 transition-colors", isSemanticLoading ? "text-purple-500 animate-pulse" : "text-gray-400")} />
                                 <input
                                     autoFocus
-                                    placeholder="Search files, communities, settings..."
+                                    placeholder="Search in any language (Hindi, Marathi, English...)"
                                     value={query}
                                     onChange={(e) => setQuery(e.target.value)}
                                     onKeyDown={handleKeyDown}

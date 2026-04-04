@@ -230,9 +230,11 @@ const GoogleDrivePage = () => {
   if (connected === null || exchangeLoading) {
     return (
       <AppLayout>
-        <div className="flex flex-col items-center justify-center min-h-[60vh] gap-3">
-          <Loader2 className="w-8 h-8 animate-spin text-primary" />
-          <p className="text-sm text-muted-foreground">Connecting Google Drive...</p>
+        <div className="bg-[#F7F7F5] dark:bg-[#0B0B0C] text-gray-900 dark:text-gray-100 min-h-screen transition-colors duration-300">
+          <div className="flex flex-col items-center justify-center min-h-[60vh] gap-3">
+            <Loader2 className="w-8 h-8 animate-spin text-primary" />
+            <p className="text-sm text-muted-foreground">Connecting Google Drive...</p>
+          </div>
         </div>
       </AppLayout>
     );
@@ -241,18 +243,20 @@ const GoogleDrivePage = () => {
   if (!connected) {
     return (
       <AppLayout>
-        <div className="flex flex-col items-center justify-center min-h-[60vh] text-center">
-          <div className="w-20 h-20 rounded-2xl bg-secondary flex items-center justify-center mb-6">
-            <HardDrive className="w-10 h-10 text-muted-foreground" />
+        <div className="bg-[#F7F7F5] dark:bg-[#0B0B0C] text-gray-900 dark:text-gray-100 min-h-screen transition-colors duration-300">
+          <div className="flex flex-col items-center justify-center min-h-[60vh] text-center px-4">
+            <div className="w-20 h-20 rounded-2xl bg-secondary flex items-center justify-center mb-6">
+              <HardDrive className="w-10 h-10 text-muted-foreground" />
+            </div>
+            <h1 className="text-2xl font-bold mb-2">Connect Google Drive</h1>
+            <p className="text-muted-foreground max-w-md mb-6">
+              Connect once, then import/export files directly between your Drive and Smart Storage.
+            </p>
+            <Button onClick={startDriveConnect} disabled={connecting} className="gap-2">
+              {connecting ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+              {connecting ? "Redirecting to Google..." : "Connect Google Drive"}
+            </Button>
           </div>
-          <h1 className="text-2xl font-bold mb-2">Connect Google Drive</h1>
-          <p className="text-muted-foreground max-w-md mb-6">
-            Connect once, then import/export files directly between your Drive and Smart Storage.
-          </p>
-          <Button onClick={startDriveConnect} disabled={connecting} className="gap-2">
-            {connecting ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
-            {connecting ? "Redirecting to Google..." : "Connect Google Drive"}
-          </Button>
         </div>
       </AppLayout>
     );
@@ -260,7 +264,8 @@ const GoogleDrivePage = () => {
 
   return (
     <AppLayout>
-      <div className="max-w-4xl mx-auto">
+      <div className="bg-[#F7F7F5] dark:bg-[#0B0B0C] text-gray-900 dark:text-gray-100 min-h-screen transition-colors duration-300">
+        <div className="max-w-4xl mx-auto py-8 px-4">
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="mb-6">
           <div className="flex items-center gap-3 mb-1">
             <HardDrive className="w-6 h-6 text-primary" />
@@ -423,6 +428,7 @@ const GoogleDrivePage = () => {
             )}
           </motion.div>
         )}
+        </div>
       </div>
     </AppLayout>
   );

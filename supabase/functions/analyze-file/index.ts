@@ -19,6 +19,7 @@ serve(async (req) => {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const geminiApiKey = Deno.env.get("GEMINI_API_KEY");
+    const openaiApiKey = Deno.env.get("OPENAI_API_KEY");
     if (!geminiApiKey) throw new Error("GEMINI_API_KEY is not configured");
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
@@ -254,6 +255,42 @@ Content: ${fileContent || "[No text content available]"}`,
       .eq("id", fileId);
 
     if (updateError) throw updateError;
+
+    // --- Generate and store embedding ---
+    if (openaiApiKey) {
+      try {
+        console.log(`Generating embedding for file: ${fileName}`);
+        const embeddingInput = `File: ${fileName}. Summary: ${metadata.summary}. Keywords: ${metadata.semantic_keywords}. Content: ${metadata.extracted_text?.substring(0, 3000)}`;
+
+        const embeddingResp = await fetch("https://api.openai.com/v1/embeddings", {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${openaiApiKey}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            model: "text-embedding-3-small",
+            input: embeddingInput,
+          }),
+        });
+
+        if (embeddingResp.ok) {
+          const embData = await embeddingResp.json();
+          const embedding = embData.data?.[0]?.embedding;
+          if (embedding) {
+            await supabase
+              .from("files")
+              .update({ embedding })
+              .eq("id", fileId);
+            console.log("Embedding generated and stored successfully.");
+          }
+        } else {
+          console.error("OpenAI Embedding error:", await embeddingResp.text());
+        }
+      } catch (embErr) {
+        console.error("Embedding generation failed (non-critical):", embErr);
+      }
+    }
 
     // Insert tags
     for (const tag of metadata.tags) {

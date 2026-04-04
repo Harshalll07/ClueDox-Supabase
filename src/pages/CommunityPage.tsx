@@ -254,7 +254,7 @@ const CommunityPage = () => {
 
   return (
     <AppLayout>
-      <div className="bg-white min-h-screen">
+      <div className="bg-[#F7F7F5] dark:bg-[#0B0B0C] text-gray-900 dark:text-gray-100 min-h-screen transition-colors duration-300">
         <div className="max-w-6xl mx-auto px-6 py-6 space-y-8 relative">
           <AnimatePresence mode="wait">
             {view === "types" && (
@@ -309,20 +309,20 @@ const CommunityPage = () => {
                   animate={{ opacity: 1, scale: 1, y: 0 }}
                   exit={{ opacity: 0, scale: 0.95, y: 10 }}
                   transition={{ duration: 0.2, ease: "easeOut" }}
-                  className="bg-white rounded-3xl p-6 sm:p-8 w-full max-w-sm shadow-xl border border-gray-100"
+                  className="bg-white dark:bg-[#111113] rounded-3xl p-6 sm:p-8 w-full max-w-sm shadow-xl border border-gray-100 dark:border-gray-800"
                 >
-                  <div className="w-12 h-12 bg-red-50 text-red-500 rounded-2xl flex items-center justify-center mb-5 border border-red-100">
+                  <div className="w-12 h-12 bg-red-50 dark:bg-red-900/20 text-red-500 rounded-2xl flex items-center justify-center mb-5 border border-red-100 dark:border-red-900/30">
                     <Trash2 className="w-6 h-6" />
                   </div>
-                  <h2 className="text-xl font-bold text-gray-900 mb-2">Delete Community</h2>
-                  <p className="text-sm text-gray-500 mb-6 leading-relaxed">
-                    Are you sure you want to delete <span className="font-semibold text-gray-900">"{deleteTarget.name}"</span>? This action cannot be undone and will permanently remove all files inside.
+                  <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-2">Delete Community</h2>
+                  <p className="text-sm text-gray-500 dark:text-gray-400 mb-6 leading-relaxed">
+                    Are you sure you want to delete <span className="font-semibold text-gray-900 dark:text-gray-100">"{deleteTarget.name}"</span>? This action cannot be undone and will permanently remove all files inside.
                   </p>
 
                   <div className="flex flex-col sm:flex-row justify-end gap-3">
                     <button
                       onClick={() => setDeleteTarget(null)}
-                      className="px-5 py-2.5 rounded-xl font-medium text-gray-600 hover:bg-gray-50 transition-colors w-full sm:w-auto border border-gray-200"
+                      className="px-5 py-2.5 rounded-xl font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-[#1A1A1C] transition-colors w-full sm:w-auto border border-gray-200 dark:border-gray-800"
                     >
                       Cancel
                     </button>

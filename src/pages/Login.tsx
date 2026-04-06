@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Eye, EyeOff, ArrowRight, Zap, ArrowLeft } from "lucide-react";
+import { Eye, EyeOff, ArrowRight, Zap, ArrowLeft, MailCheck, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -18,6 +18,7 @@ const Login = () => {
   const [isForgotPassword, setIsForgotPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
+  const [showSuccess, setShowSuccess] = useState(false);
 
   useGoogleDriveToken();
 
@@ -66,17 +67,27 @@ const Login = () => {
     setLoading(true);
     try {
       if (isSignUp) {
+        console.log("Attempting signup for email:", email);
         const { data, error } = await supabase.auth.signUp({
           email,
           password,
           options: { emailRedirectTo: window.location.origin },
         });
+
         if (error) throw error;
-        if (!data.session) {
-          toast.success("Account created! Check your email to confirm.");
+
+        if (data.user && !data.session) {
+          setShowSuccess(true);
           setLoading(false);
           return;
         }
+
+        if (!data.user && !data.session) {
+          setShowSuccess(true);
+          setLoading(false);
+          return;
+        }
+
         toast.success("Account created! Redirecting...");
       } else {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
@@ -114,6 +125,40 @@ const Login = () => {
       setLoading(false);
     }
   };
+
+  if (showSuccess) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-background p-8">
+        <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="w-full max-w-md text-center">
+          <div className="w-20 h-20 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto mb-8">
+            <MailCheck className="w-10 h-10 text-primary" />
+          </div>
+          <h2 className="text-3xl font-bold mb-4">Check your email</h2>
+          <p className="text-muted-foreground mb-8">
+            We've sent a confirmation link to <span className="text-foreground font-medium">{email}</span>. 
+            Click the link in the email to complete your setup.
+          </p>
+
+          <div className="bg-secondary/50 rounded-xl p-6 mb-8 text-left space-y-4">
+            <div className="flex gap-3">
+              <CheckCircle2 className="w-5 h-5 text-primary shrink-0" />
+              <p className="text-sm">Check your <b>Spam</b> or <b>Promotions</b> folder if you don't see it.</p>
+            </div>
+            {window.location.hostname === "localhost" && (
+              <div className="flex gap-3 pt-2 border-t border-border/50">
+                <Zap className="w-5 h-5 text-primary shrink-0" />
+                <p className="text-sm italic opacity-80">Local development? Check <b>Inbucket</b> at <code className="bg-background px-1 rounded text-[10px]">localhost:54324</code>.</p>
+              </div>
+            )}
+          </div>
+
+          <Button variant="outline" onClick={() => setShowSuccess(false)} className="w-full h-12 gap-2">
+            <ArrowLeft className="w-4 h-4" /> Back to login
+          </Button>
+        </motion.div>
+      </div>
+    );
+  }
 
   if (isForgotPassword) {
     return (

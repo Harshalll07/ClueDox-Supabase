@@ -35,10 +35,13 @@ const FileDetailPanel = ({ file, onClose, onTagClick }: Props) => {
 
   const isImage = file.fileType?.startsWith("image/") || file.type === "image";
   const isPdf = file.fileType?.includes("pdf") || file.type === "pdf";
+  const isAudio = file.fileType?.startsWith("audio/");
+  const isVideo = file.fileType?.startsWith("video/");
 
-  // Load preview for images
+  // Load preview for images/audio/video
   useEffect(() => {
-    if (!isImage || !file.fileUrl) return;
+    const isMedia = isImage || isAudio || isVideo;
+    if (!isMedia || !file.fileUrl) return;
     let cancelled = false;
     setLoadingPreview(true);
     getSignedUrl(file.fileUrl).then(url => {
@@ -48,7 +51,7 @@ const FileDetailPanel = ({ file, onClose, onTagClick }: Props) => {
       }
     });
     return () => { cancelled = true; };
-  }, [file.fileUrl, isImage]);
+  }, [file.fileUrl, isImage, isAudio, isVideo]);
 
   const textToCheck = `${file.summary || ""} ${file.aiDescription || ""} ${file.extractedText || ""}`.toLowerCase();
   const personEntities = (file.entities || []).filter((e: any) => e.type === "person");
@@ -243,6 +246,26 @@ const FileDetailPanel = ({ file, onClose, onTagClick }: Props) => {
                   Open PDF preview →
                 </button>
               </div>
+            </div>
+          )}
+
+          {/* Audio Preview */}
+          {isAudio && previewUrl && (
+            <div className="mb-5 p-4 rounded-xl border border-border/30 bg-secondary/20">
+              <audio controls className="w-full h-10">
+                <source src={previewUrl} type={file.fileType} />
+                Your browser does not support the audio element.
+              </audio>
+            </div>
+          )}
+
+          {/* Video Preview */}
+          {isVideo && previewUrl && (
+            <div className="mb-5 rounded-xl overflow-hidden border border-border/30 bg-black">
+              <video controls className="w-full max-h-64 object-contain shadow-2xl">
+                <source src={previewUrl} type={file.fileType} />
+                Your browser does not support the video element.
+              </video>
             </div>
           )}
 

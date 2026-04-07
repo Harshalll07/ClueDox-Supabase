@@ -40,12 +40,12 @@ const queryClient = new QueryClient();
 const App = () => (
   <ErrorBoundary>
     <ThemeProvider>
-      <UploadProvider>
-        <QueryClientProvider client={queryClient}>
-          <TooltipProvider>
-            <Toaster />
-            <Sonner />
-            <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+      <QueryClientProvider client={queryClient}>
+        <TooltipProvider>
+          <Toaster />
+          <Sonner />
+          <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+            <UploadProvider>
               <Routes>
                 {/* ... routes ... */}
                 <Route path="/" element={<Index />} />
@@ -76,10 +76,10 @@ const App = () => (
                 <Route path="*" element={<NotFound />} />
               </Routes>
               <UploadPanel />
-            </BrowserRouter>
-          </TooltipProvider>
-        </QueryClientProvider>
-      </UploadProvider>
+            </UploadProvider>
+          </BrowserRouter>
+        </TooltipProvider>
+      </QueryClientProvider>
     </ThemeProvider>
   </ErrorBoundary>
 );

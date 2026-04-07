@@ -4,8 +4,8 @@ import { toast } from "sonner";
 
 export interface SharedResource {
     id: string;
-    resource_id: string;
-    resource_type: "file" | "folder";
+    file_id?: string;
+    folder_id?: string;
     team_id: string;
     shared_with_user_id: string | null;
     permission: "view" | "edit";
@@ -23,15 +23,17 @@ export function useCommunitySharing(resourceId?: string, resourceType: "file" | 
         queryKey: ["community-shared-resources", resourceId],
         enabled: !!resourceId,
         queryFn: async (): Promise<SharedResource[]> => {
+            const table = resourceType === "file" ? "shared_files" : "shared_folders";
+            const idColumn = resourceType === "file" ? "file_id" : "folder_id";
+
             const { data, error } = await supabase
-                .from("shared_resources")
+                .from(table)
                 .select(`
-          *,
-          teams ( name ),
-          profiles:shared_with_user_id ( full_name )
-        `)
-                .eq("resource_id", resourceId!)
-                .eq("resource_type", resourceType);
+                  *,
+                  teams ( name ),
+                  profiles:shared_with_user_id ( full_name )
+                `)
+                .eq(idColumn, resourceId!);
 
             if (error) throw error;
             return (data || []) as SharedResource[];
@@ -51,11 +53,13 @@ export function useCommunitySharing(resourceId?: string, resourceType: "file" | 
             const { data: { user } } = await supabase.auth.getUser();
             if (!user) throw new Error("Not authenticated");
 
+            const table = resourceType === "file" ? "shared_files" : "shared_folders";
+            const idColumn = resourceType === "file" ? "file_id" : "folder_id";
+
             const { error } = await supabase
-                .from("shared_resources")
+                .from(table)
                 .upsert({
-                    resource_id: resourceId!,
-                    resource_type: resourceType,
+                    [idColumn]: resourceId!,
                     team_id: teamId,
                     shared_with_user_id: sharedWithUserId,
                     permission,
@@ -75,8 +79,9 @@ export function useCommunitySharing(resourceId?: string, resourceType: "file" | 
 
     const removeCommunityShare = useMutation({
         mutationFn: async (id: string) => {
+            const table = resourceType === "file" ? "shared_files" : "shared_folders";
             const { error } = await supabase
-                .from("shared_resources")
+                .from(table)
                 .delete()
                 .eq("id", id);
             if (error) throw error;

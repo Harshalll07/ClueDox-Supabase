@@ -15,7 +15,7 @@ export interface UploadItem {
 
 interface UploadContextType {
     uploads: UploadItem[];
-    addUpload: (file: File) => Promise<void>;
+    addUpload: (file: File, options?: { folderId?: string, isCommunity?: boolean }) => Promise<void>;
     removeUpload: (id: string) => void;
     isExpanded: boolean;
     setIsExpanded: (expanded: boolean) => void;
@@ -72,7 +72,7 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         return currentUsage + fileSize <= limit;
     };
 
-    const addUpload = useCallback(async (file: File) => {
+    const addUpload = useCallback(async (file: File, options?: { folderId?: string, isCommunity?: boolean }) => {
         const id = Math.random().toString(36).substring(7);
         const newUpload: UploadItem = {
             id,
@@ -117,6 +117,8 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
                 file_type: file.type || "application/octet-stream",
                 file_size: file.size,
                 file_status: "uploading",
+                folder_id: options?.folderId || null,
+                is_community: options?.isCommunity || false,
             }).select("id").single();
 
             if (dbError) throw dbError;
@@ -134,7 +136,7 @@ export const UploadProvider: React.FC<{ children: React.ReactNode }> = ({ childr
                 user_id: user.id,
                 type: "file_uploaded",
                 title: "File Ready",
-                description: `${file.name} is processed`,
+                message: `${file.name} is processed`,
                 link: "/files",
             }).catch(e => console.error("Notification Error", e));
 

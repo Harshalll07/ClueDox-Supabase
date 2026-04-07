@@ -8,9 +8,9 @@ export interface AppNotification {
   user_id: string;
   type: string;
   title: string;
-  description: string;
+  message: string;
   link: string | null;
-  is_read: boolean;
+  read: boolean;
   created_at: string;
 }
 
@@ -19,20 +19,20 @@ export const createNotification = async ({
   user_id,
   type,
   title,
-  description,
+  message,
   link,
 }: {
   user_id: string;
   type: "community_invite" | "community_join" | "community_file" | "file_shared" | "subscription_warning" | "subscription_expired" | "reminder_alert" | "file_uploaded";
   title: string;
-  description: string;
+  message: string;
   link?: string;
 }) => {
-  const { error } = await (supabase as any).from("app_notifications").insert({
+  const { error } = await (supabase as any).from("notifications").insert({
     user_id,
     type,
     title,
-    description,
+    message,
     link,
   });
   if (error) {
@@ -52,7 +52,7 @@ export function useNotifications() {
       if (!user) return [];
 
       const { data, error } = await (supabase as any)
-        .from("app_notifications")
+        .from("notifications")
         .select("*")
         .eq("user_id", user.id)
         .order("created_at", { ascending: false })
@@ -63,23 +63,23 @@ export function useNotifications() {
     },
   });
 
-  // 2. Realtime subscription (PER REQUIREMENTS: app_notifications ONLY)
+  // 2. Realtime subscription
   useEffect(() => {
     const channel = supabase
-      .channel("app_notifications_channel")
+      .channel("notifications_channel")
       .on(
         "postgres_changes" as any,
         {
           event: "*",
           schema: "public",
-          table: "app_notifications",
+          table: "notifications",
         },
         (payload: any) => {
           // 🔥 REALTIME TOAST (Per Requirements)
           if (payload.eventType === "INSERT") {
             const newNotif = payload.new as AppNotification;
             toast(newNotif.title, {
-              description: newNotif.description,
+              description: newNotif.message,
               action: newNotif.link ? {
                 label: "View",
                 onClick: () => window.location.href = newNotif.link!
@@ -103,7 +103,7 @@ export function useNotifications() {
 
 export function useUnreadCount() {
   const { data } = useNotifications();
-  return data?.filter((n) => !n.is_read).length || 0;
+  return data?.filter((n) => !n.read).length || 0;
 }
 
 export function useMarkRead() {
@@ -111,8 +111,8 @@ export function useMarkRead() {
   return useMutation({
     mutationFn: async (id: string) => {
       const { error } = await (supabase as any)
-        .from("app_notifications")
-        .update({ is_read: true })
+        .from("notifications")
+        .update({ read: true })
         .eq("id", id);
       if (error) throw error;
     },
@@ -130,10 +130,10 @@ export function useMarkAllRead() {
       if (!user) return;
 
       const { error } = await (supabase as any)
-        .from("app_notifications")
-        .update({ is_read: true })
+        .from("notifications")
+        .update({ read: true })
         .eq("user_id", user.id)
-        .eq("is_read", false);
+        .eq("read", false);
 
       if (error) throw error;
     },

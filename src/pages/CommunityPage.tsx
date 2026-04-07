@@ -18,6 +18,7 @@ const CommunityPage = () => {
   const [isLoadingCommunities, setIsLoadingCommunities] = useState(true);
 
   const [files, setFiles] = useState<any[]>([]);
+  const [folders, setFolders] = useState<any[]>([]);
   const [isFilesLoading, setIsFilesLoading] = useState(false);
 
   const [members, setMembers] = useState<any[]>([]);
@@ -63,35 +64,30 @@ const CommunityPage = () => {
 
     try {
       if (activeTab === "files" || silent) {
-        // 1. Fetch files owned by the team
-        const { data: teamFiles } = await supabase
-          .from("files")
-          .select("*")
+        // 2b. Fetch resources shared with this team via the new permissions table
+        const { data: permissionsData } = await (supabase as any)
+          .from("permissions")
+          .select("*, files(*), team_folders(*)")
           .eq("team_id", selectedCommunity.id);
 
-        // 2. Fetch files shared with this team via shared_resources
-        const { data: sharedData } = await (supabase as any)
-          .from("shared_resources")
-          .select("*, files(*)")
-          .eq("team_id", selectedCommunity.id)
-          .eq("resource_type", "file");
-
-        const ownedFiles = (teamFiles || []).map(f => ({
-          ...f,
-          name: f.file_name || "Unnamed File",
-          shared: false
-        }));
-
-        const sharedFiles = (sharedData || [])
-          .filter((s: any) => s.files)
-          .map((s: any) => ({
-            ...s.files,
-            name: s.files.file_name || "Unnamed (Shared)",
-            permission: s.permission,
+        const sharedFiles = (permissionsData || [])
+          .filter((p: any) => p.files) 
+          .map((p: any) => ({
+            ...p.files,
+            name: p.files.file_name || "Unnamed (Shared)",
+            permission: p.role,
             shared: true
           }));
 
-        setFiles([...ownedFiles, ...sharedFiles]);
+        const sharedFolders = (permissionsData || [])
+          .filter((p: any) => p.team_folders)
+          .map((p: any) => ({
+            ...p.team_folders,
+            shared: true
+          }));
+
+        setFiles(sharedFiles); 
+        setFolders(sharedFolders);
       }
 
       if (activeTab === "members" || silent) {
@@ -284,6 +280,7 @@ const CommunityPage = () => {
                 key="details"
                 community={selectedCommunity}
                 files={files}
+                folders={folders}
                 members={members}
                 isFilesLoading={isFilesLoading}
                 isMembersLoading={isMembersLoading}

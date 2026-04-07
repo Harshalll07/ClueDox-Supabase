@@ -132,7 +132,7 @@ export function NotificationBell() {
           )}
         </div>
 
-        {/* NOTIFICATION LIST (Uses results from app_notifications ONLY) */}
+        {/* NOTIFICATION LIST */}
         <div className="max-h-[480px] overflow-y-auto py-2">
           {isLoading ? (
             <div className="p-6 space-y-4">
@@ -160,19 +160,19 @@ export function NotificationBell() {
                         initial={{ opacity: 0, x: -5 }}
                         animate={{ opacity: 1, x: 0 }}
                         onClick={() => {
-                          if (!n.is_read) markRead.mutate(n.id);
+                          if (!n.read) markRead.mutate(n.id);
                           if (n.link) navigate(n.link);
                           setOpen(false);
                         }}
                         className={cn(
                           "w-full flex items-start gap-4 px-5 py-4 text-left transition-all relative group",
-                          !n.is_read
+                          !n.read
                             ? "bg-primary/5 hover:bg-primary/10"
                             : "hover:bg-accent/40"
                         )}
                       >
                         {/* UNREAD INDICATOR */}
-                        {!n.is_read && (
+                        {!n.read && (
                           <div className="absolute left-1.5 top-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full bg-primary shadow-sm" />
                         )}
 
@@ -188,12 +188,12 @@ export function NotificationBell() {
                         <div className="flex-1 min-w-0 pr-2">
                           <p className={cn(
                             "text-sm font-semibold leading-tight",
-                            !n.is_read ? "text-foreground" : "text-muted-foreground"
+                            !n.read ? "text-foreground" : "text-muted-foreground"
                           )}>
                             {n.title}
                           </p>
                           <p className="text-xs text-muted-foreground mt-1 line-clamp-2 leading-relaxed">
-                            {n.description}
+                            {n.message}
                           </p>
                           <p className="text-[10px] font-bold text-muted-foreground mt-2 uppercase tracking-tight">
                             {format(parseISO(n.created_at), "h:mm a")}

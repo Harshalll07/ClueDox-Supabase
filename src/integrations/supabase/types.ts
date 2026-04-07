@@ -369,12 +369,103 @@ export type Database = {
           },
         ]
       }
+      shared_files: {
+        Row: {
+          created_at: string
+          created_by: string
+          file_id: string
+          id: string
+          permission: string
+          shared_with_user_id: string | null
+          team_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          file_id: string
+          id?: string
+          permission?: string
+          shared_with_user_id?: string | null
+          team_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          file_id?: string
+          id?: string
+          permission?: string
+          shared_with_user_id?: string | null
+          team_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shared_files_file_id_fkey"
+            columns: ["file_id"]
+            isOneToOne: false
+            referencedRelation: "files"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shared_files_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      shared_folders: {
+        Row: {
+          created_at: string
+          created_by: string
+          folder_id: string
+          id: string
+          permission: string
+          shared_with_user_id: string | null
+          team_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          folder_id: string
+          id?: string
+          permission?: string
+          shared_with_user_id?: string | null
+          team_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          folder_id?: string
+          id?: string
+          permission?: string
+          shared_with_user_id?: string | null
+          team_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shared_folders_folder_id_fkey"
+            columns: ["folder_id"]
+            isOneToOne: false
+            referencedRelation: "team_folders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shared_folders_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
       team_folders: {
         Row: {
           created_at: string
           created_by: string
           id: string
           name: string
+          parent_folder_id: string | null
           team_id: string
         }
         Insert: {
@@ -382,6 +473,7 @@ export type Database = {
           created_by: string
           id?: string
           name: string
+          parent_folder_id?: string | null
           team_id: string
         }
         Update: {
@@ -389,6 +481,7 @@ export type Database = {
           created_by?: string
           id?: string
           name?: string
+          parent_folder_id?: string | null
           team_id?: string
         }
         Relationships: [
@@ -399,6 +492,13 @@ export type Database = {
             referencedRelation: "teams"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "team_folders_parent_folder_id_fkey"
+            columns: ["parent_folder_id"]
+            isOneToOne: false
+            referencedRelation: "team_folders"
+            referencedColumns: ["id"]
+          }
         ]
       }
       team_members: {
@@ -498,6 +598,7 @@ export type Database = {
           created_at: string
           id: string
           name: string
+          parent_folder_id: string | null
           updated_at: string
           user_id: string
         }
@@ -505,6 +606,7 @@ export type Database = {
           created_at?: string
           id?: string
           name: string
+          parent_folder_id?: string | null
           updated_at?: string
           user_id: string
         }
@@ -512,10 +614,19 @@ export type Database = {
           created_at?: string
           id?: string
           name?: string
+          parent_folder_id?: string | null
           updated_at?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "user_folders_parent_folder_id_fkey"
+            columns: ["parent_folder_id"]
+            isOneToOne: false
+            referencedRelation: "user_folders"
+            referencedColumns: ["id"]
+          }
+        ]
       }
       user_roles: {
         Row: {

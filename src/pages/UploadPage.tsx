@@ -30,7 +30,7 @@ const UploadPage = () => {
     const input = document.createElement("input");
     input.type = "file";
     input.multiple = true;
-    input.accept = ".pdf,.jpg,.jpeg,.png,.docx";
+    input.accept = ".pdf,.jpg,.jpeg,.png,.docx,.doc,.xlsx,.xls,.pptx,.ppt,.mp3,.wav,.m4a,.mp4,.mov,.txt,.js,.ts,.py";
     input.onchange = (e) => {
       const target = e.target as HTMLInputElement;
       if (target.files) handleFiles(target.files);
@@ -116,7 +116,7 @@ const UploadPage = () => {
                       {isDragging ? "Yes! Drop it here" : "Ready to organize?"}
                     </h3>
                     <p className="text-gray-400 dark:text-gray-500 font-medium text-sm">
-                      Drop PDF, JPG, PNG, or DOCX
+                      Any Media, Office, or PDF — we handle it all.
                     </p>
                   </div>
 

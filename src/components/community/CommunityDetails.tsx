@@ -1,10 +1,15 @@
+import React, { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { ArrowLeft, UserPlus, FileText, User, Trash2, Shield, ChevronRight } from "lucide-react";
+import { ArrowLeft, UserPlus, FileText, User, Trash2, Shield, ChevronRight, Folder, Upload } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { CommunityInviteModal } from "./CommunityInviteModal";
+import { useUploadStore } from "@/contexts/UploadContext";
+import { toast } from "sonner";
 
 export const CommunityDetails = ({
     community,
     files,
+    folders,
     members,
     isFilesLoading,
     isMembersLoading,
@@ -15,6 +20,7 @@ export const CommunityDetails = ({
 }: {
     community: any;
     files: any[];
+    folders: any[];
     members: any[];
     isFilesLoading: boolean;
     isMembersLoading: boolean;
@@ -23,10 +29,35 @@ export const CommunityDetails = ({
     activeTab: string;
     setActiveTab: (t: string) => void;
 }) => {
-    // Already filtered by DB schema natively before arriving, 
-    // but just checking safe matching if nested hooks drop arrays globally.
-    const communityFiles = files.filter(f => !f.team_id || f.team_id === community.id);
-    const communityMembers = members.filter(m => !m.team_id || m.team_id === community.id);
+    const [navigationStack, setNavigationStack] = useState<any[]>([]);
+    const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
+    const { addUpload } = useUploadStore();
+    
+    // Breadcrumb logic
+    const navigateToFolder = (folder: any) => {
+        setNavigationStack([...navigationStack, folder]);
+    };
+
+    const navigateBackTo = (index: number) => {
+        if (index === -1) {
+            setNavigationStack([]);
+        } else {
+            setNavigationStack(navigationStack.slice(0, index + 1));
+        }
+    };
+
+    const currentFolder = navigationStack[navigationStack.length - 1];
+    
+    // Filter items based on current folder
+    const communityFolders = currentFolder 
+        ? folders.filter(f => f.parent_id === currentFolder.id)
+        : folders.filter(f => !f.parent_id); 
+    
+    const communityFiles = currentFolder 
+        ? files.filter(f => f.folder_id === currentFolder.id)
+        : files.filter(f => !f.folder_id);
+        
+    const communityMembers = members;
 
     return (
         <motion.div
@@ -46,11 +77,33 @@ export const CommunityDetails = ({
                         <ArrowLeft className="w-5 h-5" />
                     </button>
                     <div>
-                        <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 tracking-tight">{community.name}</h1>
-                        <p className="text-sm font-medium text-gray-500 dark:text-gray-400 flex items-center gap-2 mt-0.5">
-                            <span className={cn("w-2 h-2 rounded-full", community.type === "my" ? "bg-indigo-500" : "bg-emerald-500")} />
-                            {community.type === "my" ? "Owner" : "Member"} Workspace
-                        </p>
+                        <div className="flex items-center gap-2 mb-1">
+                            <button 
+                                onClick={() => navigateBackTo(-1)}
+                                className="text-gray-500 hover:text-indigo-600 font-medium text-sm transition-colors"
+                            >
+                                Community
+                            </button>
+                            {navigationStack.map((folder, i) => (
+                                <React.Fragment key={folder.id}>
+                                    <ChevronRight className="w-3 h-3 text-gray-400" />
+                                    <button 
+                                        onClick={() => navigateBackTo(i)}
+                                        className={cn(
+                                            "font-medium text-sm transition-colors",
+                                            i === navigationStack.length - 1 
+                                                ? "text-gray-900 dark:text-gray-100" 
+                                                : "text-gray-500 hover:text-indigo-600"
+                                        )}
+                                    >
+                                        {folder.name}
+                                    </button>
+                                </React.Fragment>
+                            ))}
+                        </div>
+                        <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 tracking-tight">
+                            {currentFolder ? currentFolder.name : community.name}
+                        </h1>
                     </div>
                 </div>
                 <div className="flex items-center gap-2">
@@ -63,11 +116,48 @@ export const CommunityDetails = ({
                             <Trash2 className="w-5 h-5" />
                         </button>
                     )}
-                    <button className="flex items-center gap-2 px-5 py-2.5 bg-indigo-600 dark:bg-indigo-600 hover:bg-indigo-700 dark:hover:bg-indigo-500 text-white rounded-xl font-medium transition-colors active:scale-[0.98]">
+                    
+                    <button 
+                        onClick={() => setIsInviteModalOpen(true)}
+                        className="flex items-center gap-2 px-5 py-2.5 bg-indigo-600 dark:bg-indigo-600 hover:bg-indigo-700 dark:hover:bg-indigo-500 text-white rounded-xl font-medium transition-colors active:scale-[0.98]"
+                    >
                         <UserPlus className="w-4 h-4" /> Invite
                     </button>
+
+                    <div className="flex items-center gap-2">
+                        <input
+                            type="file"
+                            id="community-upload"
+                            className="hidden"
+                            multiple
+                            onChange={async (e) => {
+                                const fileList = Array.from(e.target.files || []);
+                                if (fileList.length === 0) return;
+                                
+                                for (const file of fileList) {
+                                    await addUpload(file, { 
+                                        folderId: currentFolder?.id, 
+                                        isCommunity: true 
+                                    });
+                                }
+                            }}
+                        />
+                        <label
+                            htmlFor="community-upload"
+                            className="flex items-center gap-2 px-5 py-2.5 bg-white dark:bg-[#1A1A1C] hover:bg-gray-50 dark:hover:bg-[#252529] text-gray-900 dark:text-gray-100 border border-gray-200 dark:border-gray-800 rounded-xl font-medium transition-all cursor-pointer active:scale-[0.98] shadow-sm hover:shadow-md"
+                        >
+                            <Upload className="w-4 h-4 text-indigo-500 shadow-sm" /> Upload
+                        </label>
+                    </div>
                 </div>
             </div>
+
+            <CommunityInviteModal
+                open={isInviteModalOpen}
+                onOpenChange={setIsInviteModalOpen}
+                folderId={currentFolder?.id || community.id}
+                folderName={currentFolder?.name || community.name}
+            />
 
             {/* Content Area */}
             <div>
@@ -117,35 +207,56 @@ export const CommunityDetails = ({
                                         <div className="h-16 bg-gray-100 dark:bg-[#1A1A1C] rounded-xl" />
                                         <div className="h-16 bg-gray-100 dark:bg-[#1A1A1C] rounded-xl" />
                                     </div>
-                                ) : communityFiles.length > 0 ? (
-                                    communityFiles.map((file, i) => (
-                                        <div key={file.id} className="flex items-center justify-between p-5 hover:bg-gray-50 dark:hover:bg-[#1A1A1C] transition-colors group cursor-pointer">
-                                            <div className="flex items-center gap-4">
-                                                <div className="w-10 h-10 rounded-xl bg-white dark:bg-[#1A1A1C] text-gray-500 dark:text-gray-400 flex items-center justify-center border border-gray-200 dark:border-gray-700 group-hover:bg-gray-50 dark:group-hover:bg-[#2A2A2E] transition-colors shrink-0">
-                                                    <FileText className="w-5 h-5" />
-                                                </div>
-                                                <div className="flex flex-col">
-                                                    <span className="font-semibold text-gray-900 dark:text-gray-100 text-sm truncate max-w-[200px] sm:max-w-xs">{file.name}</span>
-                                                    {file.shared && (
-                                                        <span className="text-[10px] text-indigo-500 dark:text-indigo-400 font-bold uppercase tracking-wider">Shared Resource</span>
-                                                    )}
-                                                </div>
-                                            </div>
-                                            <div className="flex items-center gap-3">
-                                                {file.shared && (
-                                                    <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-100/50 dark:border-indigo-900/30">
-                                                        <Shield className="w-3 h-3 text-indigo-500 dark:text-indigo-400" />
-                                                        <span className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 uppercase tracking-tight">{file.permission}</span>
+                                ) : (communityFolders.length > 0 || communityFiles.length > 0) ? (
+                                    <>
+                                        {/* Folders List */}
+                                        {communityFolders.map((folder) => (
+                                            <div 
+                                                key={folder.id} 
+                                                onClick={() => navigateToFolder(folder)}
+                                                className="flex items-center justify-between p-5 hover:bg-gray-50 dark:hover:bg-[#1A1A1C] transition-colors group cursor-pointer"
+                                            >
+                                                <div className="flex items-center gap-4">
+                                                    <div className="w-10 h-10 rounded-xl bg-indigo-50/50 dark:bg-indigo-900/10 text-indigo-600 dark:text-indigo-400 flex items-center justify-center border border-indigo-100 dark:border-indigo-900/20 group-hover:bg-white dark:group-hover:bg-[#2A2A2E] transition-colors shrink-0">
+                                                        <Folder className="w-5 h-5 fill-current" />
                                                     </div>
-                                                )}
-                                                <ChevronRight className="w-4 h-4 text-gray-300 dark:text-gray-600 group-hover:text-gray-500 dark:group-hover:text-gray-400 group-hover:translate-x-0.5 transition-all" />
+                                                    <div className="flex flex-col">
+                                                        <span className="font-semibold text-gray-900 dark:text-gray-100 text-sm">{folder.name}</span>
+                                                        <span className="text-[10px] text-gray-400 uppercase font-bold tracking-tight">Folder</span>
+                                                    </div>
+                                                </div>
+                                                <ChevronRight className="w-4 h-4 text-gray-300 dark:text-gray-600 group-hover:translate-x-0.5 transition-all" />
                                             </div>
-                                        </div>
-                                    ))
+                                        ))}
+
+                                        {/* Files List */}
+                                        {communityFiles.map((file) => (
+                                            <div key={file.id} className="flex items-center justify-between p-5 hover:bg-gray-50 dark:hover:bg-[#1A1A1C] transition-colors group cursor-pointer">
+                                                <div className="flex items-center gap-4">
+                                                    <div className="w-10 h-10 rounded-xl bg-white dark:bg-[#1A1A1C] text-gray-500 dark:text-gray-400 flex items-center justify-center border border-gray-200 dark:border-gray-700 group-hover:bg-gray-50 dark:group-hover:bg-[#2A2A2E] transition-colors shrink-0">
+                                                        <FileText className="w-5 h-5" />
+                                                    </div>
+                                                    <div className="flex flex-col">
+                                                        <span className="font-semibold text-gray-900 dark:text-gray-100 text-sm truncate max-w-[200px] sm:max-w-xs">{file.name || file.file_name}</span>
+                                                        <span className="text-[10px] text-indigo-500 dark:text-indigo-400 font-bold uppercase tracking-wider">File</span>
+                                                    </div>
+                                                </div>
+                                                <div className="flex items-center gap-3">
+                                                    {file.shared && (
+                                                        <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-100/50 dark:border-indigo-900/30">
+                                                            <Shield className="w-3 h-3 text-indigo-500 dark:text-indigo-400" />
+                                                            <span className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 uppercase tracking-tight">{file.permission}</span>
+                                                        </div>
+                                                    )}
+                                                    <ChevronRight className="w-4 h-4 text-gray-300 dark:text-gray-600 group-hover:text-gray-500 dark:group-hover:text-gray-400 group-hover:translate-x-0.5 transition-all" />
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </>
                                 ) : (
                                     <div className="flex flex-col items-center justify-center py-24 text-gray-400 dark:text-gray-600">
                                         <FileText className="w-12 h-12 text-gray-200 dark:text-gray-800 mb-3" />
-                                        <p className="font-medium">No files attached yet.</p>
+                                        <p className="font-medium">No resources found in this folder.</p>
                                     </div>
                                 )}
                             </motion.div>

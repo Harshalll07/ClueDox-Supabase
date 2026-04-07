@@ -4,7 +4,7 @@ import {
   Share2, PanelLeftClose, PanelLeft, Pencil, Globe,
   Eye, Download, ArrowLeft, Grid3X3, List,
   MessageCircle, FolderPlus, Folder, Loader2,
-  Upload, HardDrive
+  Upload, HardDrive, ChevronRight
 } from "lucide-react";
 import { downloadFile, viewFile } from "@/lib/fileUrl";
 import AppLayout from "./AppLayout";
@@ -136,6 +136,8 @@ const FilesPage = () => {
   // File rename state
   const [renamingFile, setRenamingFile] = useState<{ id: string; name: string } | null>(null);
   const [renameFileName, setRenameFileName] = useState("");
+  const [expandedCategories, setExpandedCategories] = useState<string[]>(["all"]);
+  const [activeCategoryFilter, setActiveCategoryFilter] = useState<string>("all");
 
   const handleCreateFolder = () => {
     if (!newFolderName.trim()) return;
@@ -223,21 +225,26 @@ const FilesPage = () => {
 
   const activeFolderData = folders.find(f => f.id === activeFolder);
 
-  const filtered = (files || []).filter((f) => {
+  // Files specifically within the active folder (ignoring category filter for counts)
+  const folderFiles = (files || []).filter((f) => {
     if (activeFolder && activeFolderData) {
-      if (!activeFolderData.fileIds.includes(f.id)) return false;
+      return activeFolderData.fileIds.includes(f.id);
     }
-
-    // Apply source filter logic
-    if (activeSourceFolder === "all") return false; // IMPORTANT: hide all files by default
-
+    // For non-folder view, handle normally
     const fileSource = (f as any).source || (f.file_url?.includes('drive') ? 'drive' : 'upload');
-    if (fileSource !== activeSourceFolder) return false;
+    return activeSourceFolder !== "all" && fileSource === activeSourceFolder;
+  });
 
+  const filtered = folderFiles.filter((f) => {
     const matchesSearch =
       f.file_name.toLowerCase().includes(filter.toLowerCase()) ||
       f.tags.some((t) => t.name.toLowerCase().includes(filter.toLowerCase()));
-    const matchesCategory = selectedCategory === "all" || f.tags.some((t) => categorizeTag(t.name) === selectedCategory) || (selectedCategory === "Other" && f.tags.length === 0);
+    
+    // For specific folder view, matchesCategory uses activeCategoryFilter
+    const matchesCategory = activeFolder 
+      ? (activeCategoryFilter === "all" || f.tags.some((t) => categorizeTag(t.name) === activeCategoryFilter) || (activeCategoryFilter === "Other" && f.tags.length === 0))
+      : (selectedCategory === "all" || f.tags.some((t) => categorizeTag(t.name) === selectedCategory) || (selectedCategory === "Other" && f.tags.length === 0));
+
     return matchesSearch && matchesCategory;
   });
 
@@ -771,42 +778,44 @@ const FilesPage = () => {
               </motion.div>
             </motion.div>
 
-            {/* FOLDERS SECTION */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
-              {[
-                { id: "upload", label: "Uploads", color: "bg-gradient-to-br from-blue-50 to-white border-gray-200 shadow-sm hover:shadow-md", activeBg: "bg-gradient-to-br from-blue-100 to-blue-50 border-blue-200 ring-2 ring-blue-500 shadow-md", iconColor: "text-blue-600 bg-blue-100", Icon: Upload },
-                { id: "community", label: "Community", color: "bg-gradient-to-br from-purple-50 to-white border-gray-200 shadow-sm hover:shadow-md", activeBg: "bg-gradient-to-br from-purple-100 to-purple-50 border-purple-200 ring-2 ring-purple-500 shadow-md", iconColor: "text-purple-600 bg-purple-100", Icon: Globe },
-                { id: "drive", label: "Drive", color: "bg-gradient-to-br from-orange-50 to-white border-gray-200 shadow-sm hover:shadow-md", activeBg: "bg-gradient-to-br from-orange-100 to-orange-50 border-orange-200 ring-2 ring-orange-500 shadow-md", iconColor: "text-orange-600 bg-orange-100", Icon: HardDrive },
-              ].map((folder) => {
-                const isActive = activeSourceFolder === folder.id;
-                const fileCount = (files || []).filter(f => {
-                  const source = (f as any).source || (f.file_url?.includes('drive') ? 'drive' : 'upload');
-                  return source === folder.id;
-                }).length;
+            {/* FOLDERS SECTION - Hidden when a folder is active */}
+            {!activeFolder && (
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
+                {[
+                  { id: "upload", label: "Uploads", color: "bg-gradient-to-br from-blue-50 to-white border-gray-200 shadow-sm hover:shadow-md", activeBg: "bg-gradient-to-br from-blue-100 to-blue-50 border-blue-200 ring-2 ring-blue-500 shadow-md", iconColor: "text-blue-600 bg-blue-100", Icon: Upload },
+                  { id: "community", label: "Community", color: "bg-gradient-to-br from-purple-50 to-white border-gray-200 shadow-sm hover:shadow-md", activeBg: "bg-gradient-to-br from-purple-100 to-purple-50 border-purple-200 ring-2 ring-purple-500 shadow-md", iconColor: "text-purple-600 bg-purple-100", Icon: Globe },
+                  { id: "drive", label: "Drive", color: "bg-gradient-to-br from-orange-50 to-white border-gray-200 shadow-sm hover:shadow-md", activeBg: "bg-gradient-to-br from-orange-100 to-orange-50 border-orange-200 ring-2 ring-orange-500 shadow-md", iconColor: "text-orange-600 bg-orange-100", Icon: HardDrive },
+                ].map((folder) => {
+                  const isActive = activeSourceFolder === folder.id;
+                  const fileCount = (files || []).filter(f => {
+                    const source = (f as any).source || (f.file_url?.includes('drive') ? 'drive' : 'upload');
+                    return source === folder.id;
+                  }).length;
 
-                return (
-                  <motion.div
-                    key={folder.id}
-                    onClick={() => setActiveSourceFolder(folder.id)}
-                    className={cn(
-                      "min-h-[110px] p-6 rounded-2xl border transition-all duration-300 ease-out cursor-pointer flex flex-col justify-between relative overflow-hidden",
-                      "hover:scale-[1.02] active:scale-[0.98]",
-                      isActive ? folder.activeBg : folder.color
-                    )}
-                  >
-                    <div className="flex items-start justify-between w-full">
-                      <div className={cn("w-12 h-12 rounded-2xl flex items-center justify-center transition-colors shadow-sm", folder.iconColor)}>
-                        <folder.Icon className="w-6 h-6" />
+                  return (
+                    <motion.div
+                      key={folder.id}
+                      onClick={() => setActiveSourceFolder(folder.id)}
+                      className={cn(
+                        "min-h-[110px] p-6 rounded-2xl border transition-all duration-300 ease-out cursor-pointer flex flex-col justify-between relative overflow-hidden",
+                        "hover:scale-[1.02] active:scale-[0.98]",
+                        isActive ? folder.activeBg : folder.color
+                      )}
+                    >
+                      <div className="flex items-start justify-between w-full">
+                        <div className={cn("w-12 h-12 rounded-2xl flex items-center justify-center transition-colors shadow-sm", folder.iconColor)}>
+                          <folder.Icon className="w-6 h-6" />
+                        </div>
+                        <span className="text-sm font-semibold text-gray-600 bg-white/60 shadow-sm px-3 py-1 rounded-xl backdrop-blur-sm border border-gray-100">
+                          {fileCount} {fileCount === 1 ? 'file' : 'files'}
+                        </span>
                       </div>
-                      <span className="text-sm font-semibold text-gray-600 bg-white/60 shadow-sm px-3 py-1 rounded-xl backdrop-blur-sm border border-gray-100">
-                        {fileCount} {fileCount === 1 ? 'file' : 'files'}
-                      </span>
-                    </div>
-                    <span className="font-bold text-gray-900 text-lg mt-4">{folder.label}</span>
-                  </motion.div>
-                );
-              })}
-            </div>
+                      <span className="font-bold text-gray-900 text-lg mt-4">{folder.label}</span>
+                    </motion.div>
+                  );
+                })}
+              </div>
+            )}
 
             <AnimatePresence mode="wait">
               {isLoading ? (
@@ -814,6 +823,83 @@ const FilesPage = () => {
                   <motion.div animate={{ rotate: 360 }} transition={{ duration: 2, repeat: Infinity, ease: "linear" }}>
                     <Loader2 className="w-8 h-8 text-primary" />
                   </motion.div>
+                </motion.div>
+              ) : activeFolder ? (
+                /* CATEGORIZED FOLDER VIEW - FOLDERS FIRST, THEN FILES */
+                <motion.div key="categorized-view" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-8 mb-12">
+                  {/* Category Cards (Folders) */}
+                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+                    {/* ALL files card */}
+                    <motion.div
+                      onClick={() => setActiveCategoryFilter("all")}
+                      className={cn(
+                        "group relative p-4 rounded-3xl border transition-all cursor-pointer overflow-hidden",
+                        activeCategoryFilter === "all" 
+                          ? "bg-primary border-primary shadow-xl shadow-primary/20 scale-105" 
+                          : "bg-white dark:bg-[#111113] border-border/40 hover:border-primary/40 hover:shadow-lg"
+                      )}
+                    >
+                      <div className="flex items-start justify-between mb-3">
+                        <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center text-lg", activeCategoryFilter === "all" ? "bg-white/20" : "bg-primary/10")}>
+                          📂
+                        </div>
+                        <div className={cn("px-2 py-0.5 rounded-lg text-[10px] font-bold uppercase tracking-wider", activeCategoryFilter === "all" ? "bg-white/20 text-white" : "bg-secondary text-muted-foreground")}>
+                          {folderFiles.length}
+                        </div>
+                      </div>
+                      <h3 className={cn("font-bold text-sm", activeCategoryFilter === "all" ? "text-white" : "text-foreground")}>All</h3>
+                    </motion.div>
+
+                    {visibleCategories.filter(c => c.name !== "all").map((cat) => {
+                      // Calculate items specifically within THIS folder for THIS category (using folderFiles instead of filtered)
+                      const itemsInCat = folderFiles.filter(f => f.tags.some(t => categorizeTag(t.name) === cat.name));
+                      if (itemsInCat.length === 0) return null;
+                      
+                      const isActive = activeCategoryFilter === cat.name;
+
+                      return (
+                        <motion.div
+                          key={cat.name}
+                          onClick={() => setActiveCategoryFilter(isActive ? "all" : cat.name)}
+                          whileHover={{ y: -5 }}
+                          whileTap={{ scale: 0.95 }}
+                          className={cn(
+                            "group relative p-4 rounded-3xl border transition-all cursor-pointer overflow-hidden",
+                            isActive 
+                              ? "bg-primary border-primary shadow-xl shadow-primary/20 scale-105" 
+                              : "bg-white dark:bg-[#111113] border-border/40 hover:border-primary/40 hover:shadow-lg"
+                          )}
+                        >
+                          <div className="flex items-start justify-between mb-3">
+                            <div className={cn(
+                              "w-10 h-10 rounded-xl flex items-center justify-center text-lg",
+                              isActive ? "bg-white/20" : "bg-primary/10"
+                            )}>
+                              {cat.icon}
+                            </div>
+                            <div className={cn(
+                              "px-2 py-0.5 rounded-lg text-[10px] font-bold uppercase tracking-wider",
+                              isActive ? "bg-white/20 text-white" : "bg-secondary text-muted-foreground"
+                            )}>
+                              {itemsInCat.length}
+                            </div>
+                          </div>
+                          <h3 className={cn("font-bold text-sm", isActive ? "text-white" : "text-foreground")}>{cat.label}</h3>
+                        </motion.div>
+                      );
+                    })}
+                  </div>
+
+                  {/* Files List below Folders */}
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between px-2">
+                       <h2 className="text-lg font-bold text-foreground">Files</h2>
+                       <p className="text-xs text-muted-foreground">{filtered.length} items shown</p>
+                    </div>
+                    <div className={cn(view === "grid" ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4" : "space-y-2")}>
+                      {filtered.map((file, i) => view === "grid" ? renderFileCard(file, i) : renderFileRow(file, i))}
+                    </div>
+                  </div>
                 </motion.div>
               ) : activeSourceFolder === "all" ? (
                 <motion.div key="empty-select" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.3, ease: "easeOut" }} className="flex flex-col items-center justify-center py-20 bg-secondary/20 rounded-[2rem] border border-dashed border-border/60 transition-all duration-300">

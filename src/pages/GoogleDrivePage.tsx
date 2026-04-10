@@ -46,7 +46,6 @@ const getAuthHeaders = async () => {
   const headers = {
     Authorization: `Bearer ${session.access_token}`,
   };
-  console.log("getAuthHeaders", headers);
   return headers;
 };
 

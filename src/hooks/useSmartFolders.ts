@@ -22,36 +22,58 @@ const SMART_FOLDERS_KEY = "Cluedox_smart_folders";
 const SMART_FOLDERS_FILE_COUNT_KEY = "Cluedox_smart_folders_count";
 const PINNED_FOLDERS_KEY = "Cluedox_pinned_folders";
 
-export function useSmartFolders() {
-  const [folders, setFolders] = useState<SmartFolder[]>(() => {
-    try { return JSON.parse(localStorage.getItem(SMART_FOLDERS_KEY) || "[]"); }
-    catch { return []; }
-  });
+export function useSmartFolders(userId?: string) {
+  const getScopedKey = useCallback((baseKey: string) => {
+    return userId ? `${baseKey}_${userId}` : baseKey;
+  }, [userId]);
 
-  const [pinnedFolders, setPinnedFolders] = useState<string[]>(() => {
-    try { return JSON.parse(localStorage.getItem(PINNED_FOLDERS_KEY) || "[]"); }
-    catch { return []; }
-  });
+  const [folders, setFolders] = useState<SmartFolder[]>([]);
+  const [pinnedFolders, setPinnedFolders] = useState<string[]>([]);
+
+  // Load folders when userId changes
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem(getScopedKey(SMART_FOLDERS_KEY));
+      setFolders(JSON.parse(stored || "[]"));
+    } catch {
+      setFolders([]);
+    }
+
+    try {
+      const stored = localStorage.getItem(getScopedKey(PINNED_FOLDERS_KEY));
+      setPinnedFolders(JSON.parse(stored || "[]"));
+    } catch {
+      setPinnedFolders([]);
+    }
+  }, [userId, getScopedKey]);
 
   const saveFolders = useCallback((newFolders: SmartFolder[], fileCount: number) => {
-    localStorage.setItem(SMART_FOLDERS_KEY, JSON.stringify(newFolders));
-    localStorage.setItem(SMART_FOLDERS_FILE_COUNT_KEY, String(fileCount));
+    localStorage.setItem(getScopedKey(SMART_FOLDERS_KEY), JSON.stringify(newFolders));
+    localStorage.setItem(getScopedKey(SMART_FOLDERS_FILE_COUNT_KEY), String(fileCount));
     setFolders(newFolders);
-  }, []);
+  }, [getScopedKey]);
 
   const togglePin = useCallback((folderName: string) => {
     setPinnedFolders(prev => {
       const next = prev.includes(folderName)
         ? prev.filter(n => n !== folderName)
         : [...prev, folderName];
-      localStorage.setItem(PINNED_FOLDERS_KEY, JSON.stringify(next));
+      localStorage.setItem(getScopedKey(PINNED_FOLDERS_KEY), JSON.stringify(next));
       return next;
     });
-  }, []);
+  }, [getScopedKey]);
 
   const getSavedFileCount = useCallback(() => {
-    return parseInt(localStorage.getItem(SMART_FOLDERS_FILE_COUNT_KEY) || "0", 10);
-  }, []);
+    return parseInt(localStorage.getItem(getScopedKey(SMART_FOLDERS_FILE_COUNT_KEY)) || "0", 10);
+  }, [getScopedKey]);
+
+  const clearFolders = useCallback(() => {
+    localStorage.removeItem(getScopedKey(SMART_FOLDERS_KEY));
+    localStorage.removeItem(getScopedKey(SMART_FOLDERS_FILE_COUNT_KEY));
+    localStorage.removeItem(getScopedKey(PINNED_FOLDERS_KEY));
+    setFolders([]);
+    setPinnedFolders([]);
+  }, [getScopedKey]);
 
   const getAllFileIdsInFolder = useCallback((item: SmartFolder | SubFolder): string[] => {
     let ids: string[] = [];
@@ -87,5 +109,6 @@ export function useSmartFolders() {
     getSavedFileCount,
     getAllFileIdsInFolder,
     getFolderByPath,
+    clearFolders,
   };
 }

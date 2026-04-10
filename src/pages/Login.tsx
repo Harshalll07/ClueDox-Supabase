@@ -67,7 +67,6 @@ const Login = () => {
     setLoading(true);
     try {
       if (isSignUp) {
-        console.log("Attempting signup for email:", email);
         const { data, error } = await supabase.auth.signUp({
           email,
           password,

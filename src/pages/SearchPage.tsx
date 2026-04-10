@@ -81,6 +81,12 @@ const SearchPage = () => {
   const urlQuery = searchParams.get("q") || "";
   const [query, setQuery] = useState(urlQuery);
 
+  const handleSearch = () => {
+    if (query.trim().length >= 2) {
+      runHybridSearch(query);
+    }
+  };
+
   // Sync query state with URL param
   useEffect(() => {
     if (urlQuery !== query) {
@@ -279,10 +285,23 @@ const SearchPage = () => {
               <p className="text-xs text-muted-foreground">Find any file using natural language, concept meanings, or Hindi/Marathi queries.</p>
             </div>
           </div>
+
+          <div className="mt-4 relative z-10">
+            <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+            <input
+              type="text"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") handleSearch();
+              }}
+              placeholder="Search in any language (Hindi, English, Marathi...)"
+              className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-[#111113] text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-purple-500 transition"
+            />
+          </div>
         </motion.div>
 
         <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="mb-6">
-          {/* We removed the local SearchAutocomplete as search is now global in AppLayout */}
 
           <div className="flex items-center gap-2 mt-2 flex-wrap">
             {hybridIntent && (

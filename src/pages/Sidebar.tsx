@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { NavLink as RouterNavLink, useNavigate, useLocation } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -32,12 +32,52 @@ const Sidebar = ({ collapsed }: { collapsed?: boolean }) => {
   const { isDark, toggleTheme } = useTheme();
   const navigate = useNavigate();
   const location = useLocation();
+  const [userName, setUserName] = useState<string | null>(null);
+
+  useEffect(() => {
+    const getUser = async () => {
+      const { data } = await supabase.auth.getUser();
+
+      if (data?.user) {
+        const user = data.user;
+        const name =
+          user.user_metadata?.full_name ||
+          user.user_metadata?.name ||
+          user.email?.split("@")[0] ||
+          "User";
+        setUserName(name);
+      } else {
+        setUserName("User");
+      }
+    };
+
+    getUser();
+
+    const { data: listener } = supabase.auth.onAuthStateChange(
+      (_event, session) => {
+        const user = session?.user;
+        if (user) {
+          const name =
+            user.user_metadata?.full_name ||
+            user.email?.split("@")[0] ||
+            "User";
+          setUserName(name);
+        } else {
+          setUserName("User");
+        }
+      }
+    );
+
+    return () => listener.subscription.unsubscribe();
+  }, []);
 
   const handleSignOut = async () => {
     await supabase.auth.signOut();
     toast.success("Signed out");
     navigate("/");
   };
+
+  if (!userName) return null;
 
   return (
     <aside className="h-full flex flex-col bg-transparent text-foreground overflow-visible relative transition-all duration-300 ease-in-out">
@@ -164,12 +204,14 @@ const Sidebar = ({ collapsed }: { collapsed?: boolean }) => {
           )}
         >
           <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-indigo-500 to-purple-500 shadow-sm border border-indigo-200/50 flex items-center justify-center shrink-0">
-            <User className="w-4 h-4 text-white" />
+            <span className="text-white font-bold text-sm">
+              {userName.charAt(0).toUpperCase()}
+            </span>
           </div>
           {!collapsed && (
             <>
               <div className="flex-1 text-left min-w-0">
-                <p className="text-sm font-semibold text-foreground truncate">Workspace</p>
+                <p className="text-sm font-semibold text-foreground truncate">{userName}</p>
                 <p className="text-xs font-medium text-muted-foreground truncate">Free Plan</p>
               </div>
               <ChevronDown className={cn("w-4 h-4 text-muted-foreground transition-transform duration-200", isUserMenuOpen ? "rotate-180" : "")} />

@@ -1,3 +1,4 @@
+import React from "react";
 import { motion } from "framer-motion";
 import { ArrowLeft, Globe, ChevronRight, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -53,19 +54,22 @@ export const CommunityList = ({
                     </motion.div>
                 ) : (
                     filtered.map((community, i) => (
-                        <motion.button
+                        <motion.div
                             key={community.id}
+                            role="button"
+                            tabIndex={0}
                             initial={{ opacity: 0, x: -10 }}
                             animate={{ opacity: 1, x: 0 }}
                             transition={{ delay: i * 0.05, duration: 0.2 }}
                             whileHover={{ x: 4 }}
                             whileTap={{ scale: 0.99 }}
-                            onClick={() => onSelect(community)}
+                            onClick={() => !community.id.startsWith("temp-") && onSelect(community)}
+                            onKeyDown={(e: React.KeyboardEvent) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); if (!community.id.startsWith("temp-")) onSelect(community); } }}
                             className={cn(
-                                "w-full flex items-center justify-between p-5 bg-white dark:bg-[#111113] rounded-2xl border border-gray-200 dark:border-gray-800 transition-colors duration-200 group relative",
-                                community.id.startsWith("temp-") ? "border-indigo-200 dark:border-indigo-900/50 bg-indigo-50/20 opacity-80 cursor-wait" : "hover:border-gray-300 dark:hover:border-gray-700"
+                                "w-full flex items-center justify-between p-5 bg-white dark:bg-[#111113] rounded-2xl border border-gray-200 dark:border-gray-800 transition-colors duration-200 group relative cursor-pointer",
+                                community.id.startsWith("temp-") ? "border-indigo-200 dark:border-indigo-900/50 bg-indigo-50/20 opacity-80 cursor-wait pointer-events-none" : "hover:border-gray-300 dark:hover:border-gray-700"
                             )}
-                            disabled={community.id.startsWith("temp-")}
+                            aria-disabled={community.id.startsWith("temp-")}
                         >
                             <div className="flex items-center gap-4">
                                 <div className="w-12 h-12 rounded-xl bg-white dark:bg-[#1A1A1C] border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 flex items-center justify-center transition-colors group-hover:bg-gray-50 dark:group-hover:bg-[#2A2A2E]">
@@ -90,7 +94,7 @@ export const CommunityList = ({
                                 )}
                                 <ChevronRight className="w-5 h-5 text-gray-400 dark:text-gray-600 group-hover:text-gray-600 dark:group-hover:text-gray-400 group-hover:translate-x-1 transition-all" />
                             </div>
-                        </motion.button>
+                        </motion.div>
                     ))
                 )}
             </div>

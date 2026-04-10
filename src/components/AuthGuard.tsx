@@ -26,7 +26,6 @@ const AuthGuard = ({ children }: { children: React.ReactNode }) => {
           data: { session },
         } = await supabase.auth.getSession();
 
-        console.log("AuthGuard: checking session...", session ? "Session found" : "No session");
 
         if (!session) {
           setAuthenticated(false);
@@ -44,10 +43,8 @@ const AuthGuard = ({ children }: { children: React.ReactNode }) => {
             .eq("user_id", session.user.id)
             .maybeSingle();
 
-          console.log("AuthGuard: profile check...", profile ? `onboarding_completed: ${profile.onboarding_completed}` : "No profile found");
 
           if (!profile || !profile.onboarding_completed) {
-            console.log("AuthGuard: Redirecting to /onboarding");
             navigate("/onboarding", { replace: true });
             return;
           }

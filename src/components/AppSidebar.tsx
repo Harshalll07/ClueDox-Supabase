@@ -1,3 +1,4 @@
+import { useState, useEffect } from "react";
 import { NavLink as RouterNavLink, useLocation, useNavigate } from "react-router-dom";
 import {
   Plus, X, ChevronDown, LayoutDashboard, Upload, FolderOpen,
@@ -30,12 +31,52 @@ const AppSidebar = ({ onClose }: { onClose?: () => void }) => {
   const navigate = useNavigate();
   const { isDark, toggleTheme } = useTheme();
   const { sharedWithMe } = useSharing();
+  const [userName, setUserName] = useState<string | null>(null);
+
+  useEffect(() => {
+    const getUser = async () => {
+      const { data } = await supabase.auth.getUser();
+
+      if (data?.user) {
+        const user = data.user;
+        const name =
+          user.user_metadata?.full_name ||
+          user.user_metadata?.name ||
+          user.email?.split("@")[0] ||
+          "User";
+        setUserName(name);
+      } else {
+        setUserName("User");
+      }
+    };
+
+    getUser();
+
+    const { data: listener } = supabase.auth.onAuthStateChange(
+      (_event, session) => {
+        const user = session?.user;
+        if (user) {
+          const name =
+            user.user_metadata?.full_name ||
+            user.email?.split("@")[0] ||
+            "User";
+          setUserName(name);
+        } else {
+          setUserName("User");
+        }
+      }
+    );
+
+    return () => listener.subscription.unsubscribe();
+  }, []);
 
   const handleSignOut = async () => {
     await supabase.auth.signOut();
     toast.success("Signed out");
     navigate("/");
   };
+
+  if (!userName) return null;
 
   return (
     <aside className="h-full w-full flex flex-col bg-[#FCFCFB] text-[#333] font-sans">
@@ -61,7 +102,7 @@ const AppSidebar = ({ onClose }: { onClose?: () => void }) => {
 
         {/* Workspace / Nav Items */}
         <div>
-          <h3 className="px-3 text-[11px] font-semibold text-[#888] uppercase tracking-wider mb-2">Workspace</h3>
+          <h3 className="px-3 text-[11px] font-semibold text-[#888] uppercase tracking-wider mb-2">{userName}</h3>
           <div className="space-y-0.5">
             {navItems.map((item) => {
               const isActive = location.pathname === item.to && !location.search.includes("folderId");
@@ -130,10 +171,10 @@ const AppSidebar = ({ onClose }: { onClose?: () => void }) => {
         <div className="w-full flex items-center justify-between p-2 rounded-lg bg-[#F5F5F4]">
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 rounded bg-[#1B3B2B] flex items-center justify-center text-white font-bold text-xs">
-              U
+              {userName.charAt(0).toUpperCase()}
             </div>
             <div className="text-left">
-              <p className="text-[13px] font-bold text-[#111] leading-none mb-1">User</p>
+              <p className="text-[13px] font-bold text-[#111] leading-none mb-1 truncate">{userName}</p>
               <p className="text-[10px] text-[#888] font-medium leading-none">Cluedox Plan</p>
             </div>
           </div>

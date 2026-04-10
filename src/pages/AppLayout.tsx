@@ -1,10 +1,10 @@
-import { ReactNode, useState, useEffect, useRef } from "react";
+import { ReactNode, useState, useEffect } from "react";
 import { Menu, Search } from "lucide-react";
 import Sidebar from "./Sidebar";
 import { NotificationBell } from "@/components/NotificationBell";
 import { CommandPalette } from "@/components/CommandPalette";
 import { SupportChat } from "@/components/SupportChat";
-import { useNavigate, useLocation } from "react-router-dom";
+import { useLocation } from "react-router-dom";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
@@ -14,8 +14,6 @@ const AppLayout = ({ children }: { children: ReactNode }) => {
   const [collapsed, setCollapsed] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const location = useLocation();
-  const navigate = useNavigate();
-  const [commandOpen, setCommandOpen] = useState(false);
 
   useEffect(() => {
     const handleScroll = (e: Event) => {
@@ -94,7 +92,7 @@ const AppLayout = ({ children }: { children: ReactNode }) => {
               <Search className="w-4 h-4 group-hover:text-purple-500 transition-colors" />
               <span className="text-sm font-medium flex-1 text-left truncate pr-4 text-muted-foreground group-hover:text-foreground">Search in any language (Hindi, English, Marathi...)</span>
               <div className="flex items-center gap-1 px-1.5 py-0.5 rounded border border-border bg-background text-[10px] font-bold text-muted-foreground">
-                {isMobile ? "Search" : (navigator.platform.toUpperCase().indexOf('MAC') >= 0 ? "⌘K" : "Ctrl+K")}
+                {isMobile ? "Search" : (navigator.userAgent.includes("Mac") ? "⌘K" : "Ctrl+K")}
               </div>
             </button>
           </div>

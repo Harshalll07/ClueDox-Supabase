@@ -110,7 +110,7 @@ const FilesPage = () => {
   const { folders, createFolder: createFolderMutation, deleteFolder: deleteFolderMutation, renameFolder: renameFolderMutation, addFileToFolder: addFileMutation, removeFileFromFolder: removeFileMutation } = useFolders();
 
   const [activeFolder, setActiveFolder] = useState<string | null>(searchParams.get("folderId"));
-  const [activeSourceFolder, setActiveSourceFolder] = useState("all");
+  const [activeSourceFolder, setActiveSourceFolder] = useState("upload");
   const [showNewFolder, setShowNewFolder] = useState(false);
 
   // Sync active folder with URL
@@ -901,18 +901,12 @@ const FilesPage = () => {
                     </div>
                   </div>
                 </motion.div>
-              ) : activeSourceFolder === "all" ? (
-                <motion.div key="empty-select" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.3, ease: "easeOut" }} className="flex flex-col items-center justify-center py-20 bg-secondary/20 rounded-[2rem] border border-dashed border-border/60 transition-all duration-300">
-                  <Folder className="w-12 h-12 text-muted-foreground/30 mb-4" />
-                  <p className="text-lg font-semibold text-foreground">Select a folder to view files</p>
-                  <p className="text-sm text-muted-foreground mt-1 text-center">Centered safely, soft empty state</p>
-                </motion.div>
               ) : filtered.length === 0 ? (
                 <motion.div key="empty-files" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.3, ease: "easeOut" }} className="text-center py-24">
                   <div className="text-muted-foreground">
-                    <Loader2 className="w-12 h-12 opacity-20 mx-auto mb-4" />
-                    <p className="text-lg">No files found</p>
-                    <p className="text-sm opacity-70">Try adjusting your filters or upload some files</p>
+                    <Upload className="w-12 h-12 opacity-20 mx-auto mb-4" />
+                    <p className="text-lg font-semibold text-foreground">No files yet — Upload your first file</p>
+                    <p className="text-sm opacity-70 mt-1">Click the Upload button above to get started</p>
                   </div>
                 </motion.div>
               ) : (

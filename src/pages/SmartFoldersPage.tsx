@@ -10,6 +10,7 @@ import { useFiles, FileWithTags } from "@/hooks/useFiles";
 import { useSmartFolders, SmartFolder, SubFolder, iconMap } from "@/hooks/useSmartFolders";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
+import { useQueryClient } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { viewFile, downloadFile } from "@/lib/fileUrl";
@@ -88,9 +89,12 @@ const DeepSubFolder = ({ sub, folderName, parentSubName, files }: { sub: SubFold
       }}
     >
       <div className="ml-4">
-        <button
+        <div
+          role="button"
+          tabIndex={0}
           onClick={() => setExpanded(!expanded)}
-          className="w-full flex items-center gap-2 p-2 rounded-lg hover:bg-secondary/20 transition-colors text-left"
+          onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setExpanded(!expanded); } }}
+          className="w-full flex items-center gap-2 p-2 rounded-lg hover:bg-secondary/20 transition-colors text-left cursor-pointer"
         >
           <Folder className="w-3.5 h-3.5 text-muted-foreground" />
           <span className="text-xs font-medium flex-1">{sub.name}</span>
@@ -105,7 +109,7 @@ const DeepSubFolder = ({ sub, folderName, parentSubName, files }: { sub: SubFold
             </button>
           </div>
           <ChevronRight className={cn("w-3 h-3 text-muted-foreground transition-transform", expanded && "rotate-90")} />
-        </button>
+        </div>
         <AnimatePresence>
           {expanded && (
             <motion.div
@@ -232,9 +236,12 @@ const SubFolderItem = ({
         onDrop={handleDrop}
         className="rounded-lg transition-all cursor-pointer"
       >
-        <button
+        <div
+          role="button"
+          tabIndex={0}
           onClick={() => setExpanded(!expanded)}
-          className="w-full flex items-center gap-3 p-3 rounded-lg hover:bg-secondary/30 transition-colors text-left"
+          onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setExpanded(!expanded); } }}
+          className="w-full flex items-center gap-3 p-3 rounded-lg hover:bg-secondary/30 transition-colors text-left cursor-pointer"
         >
           <Folder className="w-4 h-4 text-accent" />
           <span className="text-sm font-medium flex-1">{sub.name}</span>
@@ -249,7 +256,7 @@ const SubFolderItem = ({
             </button>
           </div>
           <ChevronRight className={cn("w-3 h-3 text-muted-foreground transition-transform", expanded && "rotate-90")} />
-        </button>
+        </div>
         <AnimatePresence>
           {expanded && (
             <motion.div
@@ -295,10 +302,13 @@ interface DragState {
 
 // --- Main Page ---
 const SmartFoldersPage = () => {
+  const [user, setUser] = useState<any>(null);
+  const queryClient = useQueryClient();
+  
   const { data: files } = useFiles();
   const {
-    folders, setFolders, saveFolders, pinnedFolders, togglePin, getSavedFileCount
-  } = useSmartFolders();
+    folders, setFolders, saveFolders, pinnedFolders, togglePin, getSavedFileCount, clearFolders
+  } = useSmartFolders(user?.id);
 
   const [loading, setLoading] = useState(false);
   const [deepAllLoading, setDeepAllLoading] = useState(false);
@@ -307,7 +317,27 @@ const SmartFoldersPage = () => {
   const navigate = useNavigate();
   const [dragState, setDragState] = useState<DragState | null>(null);
 
-  const { getAllFileIdsInFolder } = useSmartFolders();
+  const { getAllFileIdsInFolder } = useSmartFolders(user?.id);
+
+  // Debug logs
+  useEffect(() => {
+    console.log("USER:", user?.id);
+    console.log("FILES:", files);
+    console.log("SMART FOLDERS:", folders);
+  }, [user?.id, files, folders]);
+
+  // Sync user and handle state reset
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => setUser(data.user));
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session?.user?.id !== user?.id) {
+        queryClient.clear();
+        setFolders([]);
+      }
+      setUser(session?.user ?? null);
+    });
+    return () => subscription.unsubscribe();
+  }, [user?.id, queryClient]);
 
   const currentFileCount = files?.length || 0;
   const savedFileCount = getSavedFileCount();
@@ -478,9 +508,20 @@ const SmartFoldersPage = () => {
         )}
 
         {!loading && folders.length === 0 && (
-          <div className="text-center py-16">
-            <Folder className="w-12 h-12 text-muted-foreground/30 mx-auto mb-4" />
-            <p className="text-muted-foreground">No files uploaded yet. Upload files to see smart folders.</p>
+          <div className="text-center py-20 bg-card/50 rounded-3xl border border-dashed border-border mt-8">
+            <div className="w-16 h-16 bg-secondary/50 rounded-2xl flex items-center justify-center mx-auto mb-4">
+              <Folder className="w-8 h-8 text-muted-foreground/40" />
+            </div>
+            <h2 className="text-lg font-semibold text-foreground">No smart folders yet</h2>
+            <p className="text-muted-foreground text-sm max-w-sm mx-auto mt-2">
+              Upload files to generate smart folders. AI will automatically organize them for you.
+            </p>
+            {files && files.length > 0 && (
+              <Button onClick={categorize} variant="outline" className="mt-6 rounded-xl gap-2">
+                <RefreshCw className="w-4 h-4" />
+                Organize Now
+              </Button>
+            )}
           </div>
         )}
 
@@ -510,9 +551,12 @@ const SmartFoldersPage = () => {
                     >
                       <Star className={cn("w-4 h-4", isPinned && "fill-current")} />
                     </button>
-                    <button
+                    <div
+                      role="button"
+                      tabIndex={0}
                       onClick={() => setExpandedFolder(isExpanded ? null : folder.name)}
-                      className="flex-1 flex items-center gap-3 p-4 rounded-xl border border-border bg-card hover:bg-secondary/30 transition-colors text-left"
+                      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setExpandedFolder(isExpanded ? null : folder.name); } }}
+                      className="flex-1 flex items-center gap-3 p-4 rounded-xl border border-border bg-card hover:bg-secondary/30 transition-colors text-left cursor-pointer"
                     >
                       <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
                         {isExpanded ? <FolderOpen className="w-5 h-5 text-primary" /> : <Icon className="w-5 h-5 text-primary" />}
@@ -544,7 +588,7 @@ const SmartFoldersPage = () => {
                         </button>
                         <ChevronRight className={cn("w-4 h-4 text-muted-foreground transition-transform", isExpanded && "rotate-90")} />
                       </div>
-                    </button>
+                    </div>
                   </div>
 
                   <AnimatePresence>
